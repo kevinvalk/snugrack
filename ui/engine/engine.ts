@@ -1,7 +1,7 @@
 // Promise wrapper around the geometry worker. Each request carries an id, so a reply always
 // resolves the call that asked for it.
 
-import type { Orientation, Project } from '../wasm/rackraft.js';
+import type { Orientation, Project } from '../wasm/snugrack.js';
 import type { Vec3 } from 'manifold-3d';
 import type { Design, Request } from './worker.ts';
 

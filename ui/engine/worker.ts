@@ -1,8 +1,8 @@
 // Geometry worker: the Rust core designs the parts, manifold-3d builds them.
 
 import Module, { type Manifold, type ManifoldToplevel, type Mat4, type Vec3 } from 'manifold-3d';
-import init, { Models, defaultProject, type Assembly, type Orientation, type Part, type Project, type Solid } from '../wasm/rackraft.js';
-import wasmUrl from '../wasm/rackraft_bg.wasm?url';
+import init, { Models, defaultProject, type Assembly, type Orientation, type Part, type Project, type Solid } from '../wasm/snugrack.js';
+import wasmUrl from '../wasm/snugrack_bg.wasm?url';
 
 export type Request =
   | { type: 'defaults' }

@@ -1,9 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<rect width="64" height="64" rx="13" fill="#101A28"/>
-<g transform="translate(3.5 4) scale(.87)">
-<title>Rackraft mark</title>
-<path d="M18 7H39C50.6 7 58 14.1 58 25.7C58 34 53.7 40 46 42.5L59 57H41.6L29.6 43H20V31H38.8C43.7 31 46.1 29 46.1 25.3C46.1 21.4 43.5 19.6 38.8 19.6H18V7Z" fill="#F1F6FF"/>
-<path d="M6 9C6 7.9 6.9 7 8 7H19.5V57H8C6.9 57 6 56.1 6 55V9Z" fill="#2C7BFA"/>
-<circle cx="12.75" cy="18.2" r="2.65" fill="white"/>
-<circle cx="12.75" cy="45.8" r="2.65" fill="white"/>
-</g></svg>
+<!-- SnugRack's mark as a favicon, with a heavier rail for small sizes. It follows the system's light or dark mode, as
+     the app does. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="SnugRack">
+  <title>SnugRack</title>
+  <style>
+    .rail { fill: #1F78F5 } .top { fill: #5A7490 } .side { fill: #152130 } .leg { fill: #30455E }
+    @media (prefers-color-scheme: dark) {
+      .rail { fill: #3D8DFF } .top { fill: #E4EAF1 } .side { fill: #64768C } .leg { fill: #A3B1C2 }
+    }
+  </style>
+  <defs>
+    <!-- The R's outline: a box corner and a leg, its outside corners rounded. -->
+    <path id="r" d="M150.6 79.6L150.6 139.2L118.3 157.8A7.5 7.5 0 0 0 115.6 168L159.8 244.4A7.5 7.5 0 0 0 169.9 247.2L221.5 217.4A7.5 7.5 0 0 0 224.2 207.2L176.4 124.3L211.3 104.1A7.5 7.5 0 0 0 215.1 97.6L215.1 46.7A7.5 7.5 0 0 0 211.3 40.2L154.3 7.3A7.5 7.5 0 0 0 146.8 7.3L86.1 42.4Z"/>
+    <clipPath id="r-clip"><use href="#r"/></clipPath>
+  </defs>
+  <!-- The rack rail, with its three square holes. -->
+  <path class="rail" fill-rule="evenodd" d="M28 8.8L86.1 42.4L86.1 206.2L28 172.7Z
+      M46.1 136.2L68 148.8L68 172.7L46.1 160Z
+      M46.1 89.3L68 101.9L68 125.8L46.1 113.1Z
+      M46.1 42.4L68 55L68 78.8L46.1 66.2Z"/>
+  <!-- The R, in the tone of its side face, with its top face and leg over it, cut to its rounded outline. -->
+  <use class="side" href="#r"/>
+  <g clip-path="url(#r-clip)">
+    <path class="top" d="M86.1 42.4L150.6 79.6L215.1 42.4L150.6 5.1Z"/>
+    <path class="leg" d="M111.9 161.5L163.5 250.9L228 213.6L176.4 124.3Z"/>
+  </g>
+</svg>

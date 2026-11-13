@@ -381,23 +381,24 @@ impl DeviceFit {
             let bottom: [Face; 2] = [(&outer_bottom, wall), (&floor, -wall)];
             let top: [Face; 2] = [(&ceiling, wall), (&outer_top, -wall)];
             let walls = [
-                (cy0 - 1.0, ilo + EPS, bottom, "bottom openings"),
-                ((ilo + ihi) / 2.0, cy1 + 1.0, top, "top openings"),
+                (cy0 - 1.0, ilo + EPS, bottom, &floor, "bottom openings"),
+                ((ilo + ihi) / 2.0, cy1 + 1.0, top, &ceiling, "top openings"),
             ];
-            for (w, (y0, y1, faces, name)) in walls.into_iter().enumerate() {
+            for (w, (y0, y1, faces, inside, name)) in walls.into_iter().enumerate() {
                 let (u0, u1) = if w == 0 { flat } else { (u0, u1) };
                 let (a, b, v1) = match inner[w][..] {
                     [a, b] if b - a > 3.0 * RAIL => (a + RAIL, b - RAIL, front),
                     [_, _] => (u0, u1, behind[w]),
                     _ => (u0, u1, front),
                 };
-                let openings = openings(a, b, v0, v1, [u0, u1], behind[w]);
+                let openings = openings(a, b, v0, v1, [u0, u1], behind[w], bridgeable(&[inside], u0, u1));
                 cut.push(Solid::through(Axis::Y, openings, (y0, y1), &faces, ROUND).labeled(name));
             }
-            let (s0, s1, v1) = (ilo + b.air + 0.5, ihi - RAIL, z_collar - RAIL);
-            let sides = openings(s0, s1, end + RAIL.max(CLOSED * self.size.z), v1, [s0, s1], v1);
             let [outer_left, left, right, outer_right] =
                 [(outer, false), (cavity, false), (cavity, true), (outer, true)].map(|(s, top)| face(s, 0, top));
+            let (s0, s1, v1) = (ilo + b.air + 0.5, ihi - RAIL, z_collar - RAIL);
+            let bridge = bridgeable(&[&left, &right], s0, s1);
+            let sides = openings(s0, s1, end + RAIL.max(CLOSED * self.size.z), v1, [s0, s1], v1, bridge);
             let faces: [Face; 4] = [(&outer_left, wall), (&left, -wall), (&right, wall), (&outer_right, -wall)];
             cut.push(Solid::through(Axis::X, sides, (cx0 - 1.0, cx1 + 1.0), &faces, ROUND).labeled("side openings"));
         }
@@ -650,11 +651,39 @@ fn rise(shape: &Contour, face: f64, s: f64, tips: &[(f64, f64)]) -> Solid {
     Solid::loft(rings)
 }
 
+/// The stretch of `lo..hi` round its middle where each face runs straight, to within STRAIGHT, less
+/// ROUND at either end, which the cuts' rounding takes: there an opening's top edge, a bridge as the
+/// cage prints, runs straight too, where round the device's rounded edges it would bend.
+fn bridgeable(faces: &[&impl Fn(f64) -> Option<f64>], lo: f64, hi: f64) -> [f64; 2] {
+    let n = ((hi - lo) / STRAIGHT).ceil().max(1.0) as usize;
+    let u = |i: usize| lo + (hi - lo) * i as f64 / n as f64;
+    let at: Vec<Vec<Option<f64>>> = faces.iter().map(|f| (0..=n).map(|i| f(u(i))).collect()).collect();
+    // Whether each face, from look i to look j, stays within STRAIGHT of the line between its ends.
+    let fits = |i: usize, j: usize| {
+        at.iter().all(|f| {
+            let (Some(a), Some(b)) = (f[i], f[j]) else { return false };
+            let line = |k: usize| a + (b - a) * (k - i) as f64 / (j - i).max(1) as f64;
+            (i..=j).all(|k| f[k].is_some_and(|v| (v - line(k)).abs() <= STRAIGHT))
+        })
+    };
+    let (mut i, mut j) = (n / 2, n / 2);
+    loop {
+        let down = i > 0 && fits(i - 1, j);
+        i -= down as usize;
+        let up = j < n && fits(i, j + 1);
+        j += up as usize;
+        if !down && !up {
+            return [u(i) + ROUND, u(j) - ROUND];
+        }
+    }
+}
+
 /// Openings in a wall, `u` across and `v` along the cage, as few and as big as bridges allow.
 /// Printed with v up, an opening's top edge is a bridge; 45-degree chamfers at its corners keep that
-/// to BRIDGE, so where one opening would need more, several sit side by side. Below `knee` the
-/// outermost reach on out to `wide`, their sides stepping out at 45 degrees, which bridges nothing.
-fn openings(u0: f64, u1: f64, v0: f64, v1: f64, wide: [f64; 2], knee: f64) -> Vec<Contour> {
+/// to BRIDGE, so where one opening would need more, several sit side by side, and within `bridge`,
+/// where the wall runs straight, so it doesn't bend. Below `knee` the outermost reach on out to
+/// `wide`, their sides stepping out at 45 degrees, which bridges nothing.
+fn openings(u0: f64, u1: f64, v0: f64, v1: f64, wide: [f64; 2], knee: f64, bridge: [f64; 2]) -> Vec<Contour> {
     let (width, height) = (u1 - u0, v1 - v0);
     if width < RAIL || height < RAIL {
         return Vec::new();
@@ -669,15 +698,22 @@ fn openings(u0: f64, u1: f64, v0: f64, v1: f64, wide: [f64; 2], knee: f64) -> Ve
         (n, w, c, n as f64 * (w * height - 2.0 * c * c))
     };
     let (n, w, c, _) = (fewest..=most.max(fewest)).map(shape).max_by(|a, b| a.3.total_cmp(&b.3)).unwrap();
-    // How far the outermost reach out: no further than their bottom chamfers let them.
     let k = knee.clamp(v0 + c, v1 - c);
-    let reach = |end: bool, e: f64| if end { e.min(k - v0 - c) } else { 0.0 };
     (0..n)
         .map(|i| {
             let (a, b) = (u0 + i as f64 * (w + RAIL), u0 + i as f64 * (w + RAIL) + w);
-            let (l, r) = (reach(i == 0, a - wide[0]), reach(i == n - 1, wide[1] - b));
-            let right = [[b + r - c, v0], [b + r, v0 + c], [b + r, k - r], [b, k], [b, v1 - c], [b - c, v1]];
-            let left = [[a + c, v1], [a, v1 - c], [a, k], [a - l, k - l], [a - l, v0 + c], [a - l + c, v0]];
+            // The top edge, from p to q: its chamfers run on to where the wall runs straight, as far as
+            // the bottom chamfers let them, and the knees no higher than they start.
+            let p = (a + c).max(bridge[0]).min(a + height - c).min(b);
+            let q = (b - c).min(bridge[1]).max(b - height + c).max(p);
+            let (kl, kr) = (k.min(v1 - (p - a)), k.min(v1 - (b - q)));
+            // How far the outermost reach out: no further than their bottom chamfers let them.
+            let (l, r) = (
+                if i == 0 { (a - wide[0]).min(kl - v0 - c) } else { 0.0 },
+                if i == n - 1 { (wide[1] - b).min(kr - v0 - c) } else { 0.0 },
+            );
+            let right = [[b + r - c, v0], [b + r, v0 + c], [b + r, kr - r], [b, kr], [b, v1 - (b - q)], [q, v1]];
+            let left = [[p, v1], [a, v1 - (p - a)], [a, kl], [a - l, kl - l], [a - l, v0 + c], [a - l + c, v0]];
             // Where it doesn't reach out, the two points of its knee are one, give or take rounding.
             let mut o = [right, left].concat();
             o.dedup_by(|p, q| (p[0] - q[0]).hypot(p[1] - q[1]) < poly::RESOLUTION);
@@ -1047,12 +1083,45 @@ mod tests {
         assert!((tall - device.fit(&p).unwrap().height(&p) - 2.0).abs() < 0.05, "{tall}");
     }
 
+    /// Round a device's rounded edges the walls bend, and an opening's top edge, a bridge as the cage
+    /// prints, would bend with them, which no printer bridges: the top edges run where the walls run
+    /// straight, the side openings' and the top ones'.
+    #[test]
+    fn the_openings_bridge_only_where_the_walls_run_straight() {
+        let p = Project::default();
+        let fit = crate::Device::from(extruded(poly::rounded_rect(-50.0, 0.0, 50.0, 40.0, 10.0))).fit(&p).unwrap();
+        let m = fit.module(0.0, (-30.0, 30.0), &p);
+        let cavity = poly::translate(&fit.cavity, 0.0, m.shift.y);
+        // Side openings are in (y, z), and the left wall's face is its least x at y; top ones in (z, x),
+        // and the ceiling is the greatest y at x.
+        let face = |along: usize, u: f64| {
+            let at = poly::crossings(&cavity, along, u).into_iter().map(|c| c.0);
+            if along == 0 { at.fold(f64::INFINITY, f64::min) } else { at.fold(f64::NEG_INFINITY, f64::max) }
+        };
+        for (name, v) in [("side openings", 1), ("top openings", 0)] {
+            let openings = m.cage.profiles(name);
+            assert!(!openings.is_empty(), "no {name}");
+            for o in openings {
+                let top = o.iter().map(|q| q[v]).fold(f64::NEG_INFINITY, f64::max);
+                let us: Vec<f64> = o.iter().filter(|q| q[v] > top - 1e-9).map(|q| q[1 - v]).collect();
+                let (a, b) = (
+                    us.iter().copied().fold(f64::INFINITY, f64::min),
+                    us.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+                );
+                let at: Vec<f64> = (0..=100).map(|i| face(1 - v, a + (b - a) * i as f64 / 100.0)).collect();
+                let bend = at.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                    - at.iter().copied().fold(f64::INFINITY, f64::min);
+                assert!(bend <= STRAIGHT, "{name}: the bridge from {a:.1} to {b:.1} bends {bend:.2} mm");
+            }
+        }
+    }
+
     /// Next to the tongues, what's left of a wall can be a hair wider or taller than a rail: still
     /// an opening, with chamfers that fit.
     #[test]
     fn a_wall_just_wider_than_a_rail_opens() {
         for (u1, v1) in [(RAIL + 0.01, 50.0), (50.0, RAIL + 0.01)] {
-            assert!(!openings(0.0, u1, 0.0, v1, [0.0, u1], v1).is_empty());
+            assert!(!openings(0.0, u1, 0.0, v1, [0.0, u1], v1, [0.0, u1]).is_empty());
         }
     }
 
@@ -1062,7 +1131,7 @@ mod tests {
     fn openings_have_no_points_a_hair_apart() {
         for i in 0..2000 {
             let (u0, u1) = (0.1 * i as f64, 40.0 + 0.37 * i as f64);
-            for o in openings(u0, u1, 0.0, 50.0, [u0, u1], 20.0) {
+            for o in openings(u0, u1, 0.0, 50.0, [u0, u1], 20.0, [u0, u1]) {
                 let gap = |k: usize| (o[k][0] - o[(k + 1) % o.len()][0]).hypot(o[k][1] - o[(k + 1) % o.len()][1]);
                 assert!((0..o.len()).all(|k| gap(k) >= poly::RESOLUTION), "{u0} {u1}: {o:?}");
             }

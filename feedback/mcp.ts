@@ -2,7 +2,7 @@
 // the model or the interface with the code they trace back to, replies and resolves them, and looks
 // at the open app itself. Notes come from .feedback/; the app is reached through the dev server.
 //
-//   claude mcp add rackraft-feedback -- node --experimental-strip-types --no-warnings feedback/mcp.ts
+//   claude mcp add snugrack-feedback -- node feedback/mcp.ts
 
 import { readFile } from 'node:fs/promises';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -11,9 +11,9 @@ import { z } from 'zod';
 import * as store from './store.ts';
 
 /** Where `npm run dev` serves the app. */
-const DEV = process.env.RACKRAFT_DEV ?? 'http://localhost:5173';
+const DEV = process.env.SNUGRACK_DEV ?? 'http://localhost:5173';
 
-const server = new McpServer({ name: 'rackraft-feedback', version: '0.1.0' });
+const server = new McpServer({ name: 'snugrack-feedback', version: '0.1.0' });
 const text = (value: unknown) => ({ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) });
 const image = (data: string) => ({ type: 'image' as const, data, mimeType: 'image/png' });
 

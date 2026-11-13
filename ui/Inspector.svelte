@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Circle, RotateCcw, RotateCw, Ruler, Trash2 } from '@lucide/svelte';
   import { rowNumber, studio } from './studio.svelte.ts';
-  import type { Align, RackWidth, Side } from './wasm/rackraft.js';
+  import type { Align, RackWidth, Side } from './wasm/snugrack.js';
 
   /** Quarter turns of a device as it shows in the view, about the rack's x, y and z. */
   const TURNS = [

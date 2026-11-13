@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Rackraft designs 3D-printable rack mounts from devices' own models: a Rust core that knows the geometry (`src/`), built
+SnugRack designs 3D-printable rack mounts from devices' own models: a Rust core that knows the geometry (`src/`), built
 to WASM, and a Svelte app over it (`ui/`). The core hands over data, the UI puts it in words.
 
 ## Rule one: elegance
@@ -51,7 +51,7 @@ Never trade away behavior, safety or a test of what we must not get wrong.
   port 5173): check first (`pgrep`, `lsof`), and wait if it's busy.
 - **Only the user prints parts and fits them to real devices.** Device models in `fixtures/` are theirs and never get
   committed: we don't know whether their makers allow it.
-- **Feedback notes:** the user pins notes in the running app; read them with the `rackraft-feedback` MCP tools
+- **Feedback notes:** the user pins notes in the running app; read them with the `snugrack-feedback` MCP tools
   (`feedback_list`, `feedback_get`), follow `source` to the code, and reply when done (`feedback_reply`), with what
   changed and what to check. Resolve only what you verified; the user can reopen.
 - **Keep them posted:** a short line of what you're on every few steps, findings and decisions in plain words.
@@ -98,7 +98,7 @@ Never trade away behavior, safety or a test of what we must not get wrong.
 ## Verifying in the running app
 
 `npm run e2e` (see Check in the README) serves the built app on port 4174, never touching the user's dev server or data.
-Look at every screenshot in `test-results/` of what you touched. `RACKRAFT_MODELS=fixtures/a.glb,...` adds the user's
+Look at every screenshot in `test-results/` of what you touched. `SNUGRACK_MODELS=fixtures/a.glb,...` adds the user's
 real models. Nothing may be left listening afterwards. Keep it passing without a slicer or fixtures, as CI runs it.
 
 ## UI

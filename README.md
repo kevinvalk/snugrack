@@ -1,4 +1,4 @@
-# Rackraft
+<h1><img src="public/logo.svg" alt="SnugRack" height="56"></h1>
 
 3D-printable rack mounts for gear that was never meant for a rack, designed from the devices' own 3D models.
 Everything runs in the browser; nothing is uploaded.
@@ -86,7 +86,7 @@ fixtures/                your own device models for the tests, never committed
 
 ## Run
 
-Requires [rustup](https://rustup.rs) (`rust-toolchain.toml` brings the rest of Rust), `wasm-pack` and Node 22+.
+Requires [rustup](https://rustup.rs) (`rust-toolchain.toml` brings the rest of Rust) and Node 26+ (`nvm install` picks it up from `.nvmrc`).
 
 ```sh
 npm install
@@ -113,7 +113,7 @@ CI runs all of these on every push (`.github/workflows/check.yml`), without slic
 is watertight with no overhangs beyond short bridges. It imports a part back as an STL device, reloads to check the
 rack persists, and leaves screenshots and STLs in `test-results/`. It also runs the measuring tests in
 `ui/viewport/measure.test.ts`. With PrusaSlicer installed (or `PRUSASLICER` pointing at it) it slices every part and
-reports print time, filament, bridges, overhangs and gap fill. `RACKRAFT_MODELS=fixtures/a.glb,...` adds a rack of
+reports print time, filament, bridges, overhangs and gap fill. `SNUGRACK_MODELS=fixtures/a.glb,...` adds a rack of
 your own models, one per panel, with the same checks.
 
 ## Feedback
@@ -127,7 +127,7 @@ agent's answers show up in the panel, where you reply, resolve or reopen.
 The agent reads the notes through an MCP server, which can also take a screenshot of the open app and read its state:
 
 ```sh
-claude mcp add rackraft-feedback -- node --experimental-strip-types --no-warnings feedback/mcp.ts
+claude mcp add snugrack-feedback -- node feedback/mcp.ts
 ```
 
 None of it reaches `npm run build`.

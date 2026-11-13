@@ -9,7 +9,7 @@ import type { Object3D } from 'three';
 import { engine } from './engine/engine.ts';
 import type { Design, PartMesh } from './engine/worker.ts';
 import { boxScene, download, loadModel, slug, stl } from './files.ts';
-import type { Direction, Hole, Issue, Orientation, PartKind, Project, Row } from './wasm/rackraft.js';
+import type { Direction, Hole, Issue, Orientation, PartKind, Project, Row } from './wasm/snugrack.js';
 
 export type Size = [number, number, number];
 
@@ -33,7 +33,7 @@ export type Place = { row: number; device: number };
 
 type Status = { busy: true } | { busy: false; ms?: number; error?: string };
 
-const KEY = 'rackraft.doc';
+const KEY = 'snugrack.doc';
 
 class Studio {
   doc = $state<Doc | null>(null);
@@ -57,7 +57,8 @@ class Studio {
 
   /** Open the saved document, or start a new one. */
   async open() {
-    const saved: Doc | null = JSON.parse(localStorage.getItem(KEY) ?? 'null');
+    // We were called Rackraft: a document saved under the old name opens too, and saves under the new one.
+    const saved: Doc | null = JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('rackraft.doc') ?? 'null');
     const project = await engine.defaults();
     // A setting added since the document was saved takes its default, and so does one saved empty
     // (JSON keeps a number that isn't one as null).

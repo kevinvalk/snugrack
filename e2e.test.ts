@@ -5,7 +5,7 @@
 // device; your own models get a rack of their own, one per panel:
 //
 //   npm run e2e
-//   RACKRAFT_MODELS=fixtures/a.glb,fixtures/b.stl npm run e2e
+//   SNUGRACK_MODELS=fixtures/a.glb,fixtures/b.stl npm run e2e
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -23,7 +23,7 @@ const browser = await chromium.launch();
 await mkdir('test-results', { recursive: true });
 /** PrusaSlicer, if it's here: set PRUSASLICER to point at it elsewhere. */
 const SLICER = process.env.PRUSASLICER ?? '/Applications/PrusaSlicer.app/Contents/MacOS/PrusaSlicer';
-const slicerData = existsSync(SLICER) ? await mkdtemp(join(tmpdir(), 'rackraft-slicer-')) : null;
+const slicerData = existsSync(SLICER) ? await mkdtemp(join(tmpdir(), 'snugrack-slicer-')) : null;
 after(async () => {
   await browser.close();
   await new Promise((done) => server.httpServer.close(done));
@@ -115,7 +115,7 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
 
   // The rack's name is the page's title.
   await page.getByLabel('Rack name').fill('Lab rack');
-  assert.equal(await page.title(), 'Lab rack · Rackraft');
+  assert.equal(await page.title(), 'Lab rack · SnugRack');
 
   await page.getByRole('button', { name: 'Iso' }).click();
   await page.screenshot({ path: 'test-results/rack.png' });
@@ -158,14 +158,14 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   // The rack survives a reload: the project from localStorage, the model from IndexedDB. A setting
   // saved empty, as an emptied field once could, takes its default again.
   await page.evaluate(() => {
-    const doc = JSON.parse(localStorage.getItem('rackraft.doc')!);
+    const doc = JSON.parse(localStorage.getItem('snugrack.doc')!);
     doc.project.fit.hook = null;
-    localStorage.setItem('rackraft.doc', JSON.stringify(doc));
+    localStorage.setItem('snugrack.doc', JSON.stringify(doc));
   });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.reload();
   await designed(page);
-  assert.equal(await page.title(), 'Lab rack · Rackraft');
+  assert.equal(await page.title(), 'Lab rack · SnugRack');
   await nav.getByRole('button', { name: /^Rack/ }).click();
   assert.equal(await page.getByLabel('Hook').inputValue(), '1.2');
   const tree = await nav.getByRole('button').allTextContents();
@@ -281,9 +281,9 @@ test('a device from the library', { timeout: 120_000 }, async () => {
   await page.close();
 });
 
-test('real models', { skip: !process.env.RACKRAFT_MODELS, timeout: 600_000 }, async () => {
+test('real models', { skip: !process.env.SNUGRACK_MODELS, timeout: 600_000 }, async () => {
   const page = await open();
-  const models = process.env.RACKRAFT_MODELS!.split(',');
+  const models = process.env.SNUGRACK_MODELS!.split(',');
   for (const [panel, path] of models.entries()) {
     if (panel > 0) await designed(page, () => page.getByRole('button', { name: 'Add panel' }).click());
     const started = performance.now();

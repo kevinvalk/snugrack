@@ -2,7 +2,7 @@
   /** Where the library lives; a remote one works the same, if it allows other sites to read it. */
   const LIBRARY = `${import.meta.env.BASE_URL}library.json`;
 
-  import type { Direction } from './wasm/rackraft.js';
+  import type { Direction } from './wasm/snugrack.js';
 
   /** A device in the library: `glb` is a link to its model, absolute or relative to the library. */
   interface Entry {

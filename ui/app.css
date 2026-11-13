@@ -1,4 +1,4 @@
-/* Rackraft's design system: its brand colors in the calm, compact language of UniFi's apps.
+/* SnugRack's design system: its brand colors in the calm, compact language of UniFi's apps.
    One control height (h-8), one radius (rounded-lg), Tailwind's own spacing and type scale, and the
    system's light or dark mode. Styles live as utilities in the markup; a component repeats them
    through a snippet or a class string. Only the controls every part of the app shares are classes

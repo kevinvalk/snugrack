@@ -1,14 +1,17 @@
 {
-  "name": "rackraft",
+  "name": "snugrack",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
   "scripts": {
     "wasm": "wasm-pack build --target web --out-dir ui/wasm --no-pack --release",
     "dev": "npm run wasm && vite",
     "build": "npm run wasm && vite build",
     "check": "npm run wasm && svelte-check",
-    "e2e": "npm run build && node --test --experimental-strip-types --no-warnings e2e.test.ts ui/viewport/measure.test.ts"
+    "e2e": "npm run build && node --test e2e.test.ts ui/viewport/measure.test.ts"
   },
   "dependencies": {
     "@lucide/svelte": "^1.72.0",
@@ -30,6 +33,7 @@
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
     "vite": "^8.3.8",
+    "wasm-pack": "^0.15.1",
     "zod": "^4.6.7"
   }
 }

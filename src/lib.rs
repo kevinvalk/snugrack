@@ -1,4 +1,4 @@
-//! Rackraft designs 3D-printable rack mounts from devices' 3D models. The output is a CSG tree
+//! SnugRack designs 3D-printable rack mounts from devices' 3D models. The output is a CSG tree
 //! per part (see [`csg`]); a mesh kernel turns it into triangles. JavaScript uses it through
 //! [`Models`], with TypeScript types tsify writes into wasm-pack's output.
 

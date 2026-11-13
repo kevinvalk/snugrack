@@ -3,7 +3,7 @@
   import Library from './Library.svelte';
   import { MODEL_FILES } from './files.ts';
   import { describe, rowNumber, studio, type Place, type Selection } from './studio.svelte.ts';
-  import type { RackWidth } from './wasm/rackraft.js';
+  import type { RackWidth } from './wasm/snugrack.js';
 
   const RACKS: Record<RackWidth['kind'], string> = { inch19: '19″', inch10: '10″', fit: 'Fit', custom: 'Custom' };
 

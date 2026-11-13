@@ -2,7 +2,7 @@ target/
 node_modules/
 dist/
 test-results/
-# Real device models, for RACKRAFT_MODELS: their makers' to share, not ours.
+# Real device models, for SNUGRACK_MODELS: their makers' to share, not ours.
 fixtures/
 # Feedback notes during development: a working conversation, with screenshots of the user's devices.
 .feedback/

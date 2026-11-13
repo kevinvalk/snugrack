@@ -11,7 +11,7 @@ const PATIENCE = 20_000;
 
 export default function feedback(): Plugin {
   return {
-    name: 'rackraft-feedback',
+    name: 'snugrack-feedback',
     apply: 'serve',
     configureServer(server) {
       // Commands for the tab, each answered by the call it carries.
@@ -38,7 +38,7 @@ export default function feedback(): Plugin {
             const call = ++calls;
             const answer = new Promise((resolve) => {
               waiting.set(call, resolve);
-              setTimeout(() => waiting.delete(call) && resolve({ ok: false, error: 'No Rackraft tab answered: open the app in a browser.' }), PATIENCE);
+              setTimeout(() => waiting.delete(call) && resolve({ ok: false, error: 'No SnugRack tab answered: open the app in a browser.' }), PATIENCE);
             });
             server.ws.send('feedback:command', { call, ...((await json(req)) as object) });
             return send(res, await answer);

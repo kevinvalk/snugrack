@@ -7,7 +7,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 import type { PartMesh, Source } from '../engine/worker.ts';
 import { clear, featureAt, pixel, REACH, Ruler, SHARP, type Feature, type Measurement } from './measure.ts';
 import type { Place, Selection } from '../studio.svelte.ts';
-import type { PartKind } from '../wasm/rackraft.js';
+import type { PartKind } from '../wasm/snugrack.js';
 
 export type Layer = 'device' | 'faceplate' | 'cage';
 export type ViewName = 'iso' | 'front' | 'top' | 'side' | 'back';
