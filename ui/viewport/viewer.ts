@@ -17,7 +17,7 @@ export type Tool = 'measure' | 'hole' | null;
  * A device's hole through the faceplate, by its device's place and its own, and where it is in the rack frame; `origin`
  * is where its device's own frame is, to take a move back to.
  */
-export type Hole = Place & { hole: number; x: number; y: number; diameter: number; origin: number[] };
+type Hole = Place & { hole: number; x: number; y: number; diameter: number; origin: number[] };
 
 const LAYER: Record<PartKind, Layer> = { faceplate: 'faceplate', leftEar: 'faceplate', rightEar: 'faceplate', cage: 'cage' };
 /** Where each view looks from, towards the rack. */
@@ -25,14 +25,14 @@ const VIEWS: Record<ViewName, [number, number, number]> = { iso: [0.55, 0.4, 0.7
 /** Every printed part in one color, as a slicer shows one filament. */
 const PART = 0xc5ceda;
 const GRID = 0x94a3b8;
-const ACCENT = new THREE.Color(0x2c7bfa);
-const CUT = 0xf5a524;
+/** A color of the app's theme (`app.css`), so the view and the interface agree. */
+const theme = (name: string) => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(name).trim());
 /** The closest the camera gets to the point it orbits, in mm. */
 const NEAREST = 5;
 /** How far the pointer may move between press and release, in pixels, for a click rather than a drag. */
 const CLICK = 4;
 /** Faces meeting at less than this are smooth-shaded together; sharper ones keep a crisp edge. */
-const CREASE = THREE.MathUtils.degToRad(30);
+const CREASE = THREE.MathUtils.degToRad(SHARP);
 /**
  * The explode runs from 0 to 1 in two steps, devices staying put. Up to OUT, faceplates slide forward and cages back
  * until they clear every device, the reverse of putting them on. That says how the rack goes together, so it gets
@@ -66,13 +66,15 @@ export class Viewer {
   private observer: ResizeObserver;
   private bounds = new THREE.Box3(new THREE.Vector3(-240, -45, -150), new THREE.Vector3(240, 0, 0));
   private state = { explode: 0, hidden: new Set<Layer>(), selected: null as Selection, tool: null as Tool, holes: [] as Hole[], section: null as Section | null };
-  private ruler = new Ruler(this.clip, this.devices, ACCENT, (m) => this.on.measure(m));
+  private accent = theme('--color-accent');
+  private cut = theme('--color-warn');
+  private ruler = new Ruler(this.clip, this.devices, this.accent, (m) => this.on.measure(m));
   /** Round the selected hole, on the front of the faceplate it goes through, wherever the explode has moved that. */
-  private ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, 1, 1).getPoints(64)), new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false }));
+  private ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, 1, 1).getPoints(64)), new THREE.LineBasicMaterial({ color: this.accent, depthTest: false }));
   /** A hole being dragged, and where to, in the rack frame as assembled. */
   private moving: { hole: Hole; x: number; y: number } | null = null;
   /** Round the selected device's model: one with its own rack ears has no parts to light up. */
-  private outline = new THREE.Box3Helper(new THREE.Box3(), ACCENT);
+  private outline = new THREE.Box3Helper(new THREE.Box3(), this.accent);
   /** We draw only when something changed, not every frame: an idle view costs nothing. */
   private dirty = true;
 
@@ -214,7 +216,7 @@ export class Viewer {
       const surface = new THREE.Mesh(shaded, new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0, clippingPlanes: [this.clip] }));
       // Where a section cuts a part open, its back faces show: we color them as the cut face. Only
       // then, or they'd flicker through wherever two faces lie close.
-      const inside = new THREE.Mesh(shaded, new THREE.MeshBasicMaterial({ color: CUT, side: THREE.BackSide, clippingPlanes: [this.clip] }));
+      const inside = new THREE.Mesh(shaded, new THREE.MeshBasicMaterial({ color: this.cut, side: THREE.BackSide, clippingPlanes: [this.clip] }));
       surface.name = 'surface';
       inside.name = 'inside';
       const edges = new THREE.LineSegments(
@@ -311,7 +313,7 @@ export class Viewer {
       part.matrix.makeTranslation(offset).multiply(base);
       const isSelected = selected?.row === row && selected.hole === undefined && (selected.device === null || selected.device === device);
       const surface = (part.getObjectByName('surface') as THREE.Mesh).material as THREE.MeshStandardMaterial;
-      surface.color.set(PART).lerp(ACCENT, isSelected ? 0.35 : 0);
+      surface.color.set(PART).lerp(this.accent, isSelected ? 0.35 : 0);
       part.getObjectByName('inside')!.visible = this.clip.constant !== Infinity;
     }
     for (const dot of this.markers.children) dot.position.fromArray(dot.userData.point).add(this.offset(dot.userData.part));
@@ -369,7 +371,7 @@ export class Viewer {
   /** The hole under the pointer, unless something's in front of it: a hole is where its faceplate isn't. */
   private holeAt(ray: THREE.Raycaster): Hole | undefined {
     if (this.state.hidden.has('faceplate')) return undefined;
-    const hit = this.hit(undefined, ray);
+    const hit = this.hit(ray);
     return this.state.holes.find((h) => {
       const at = this.onFace(ray, h);
       const nearer = at && (!hit || hit.distance > at.clone().add(this.plate(h)).distanceTo(ray.ray.origin) - 0.01);
@@ -399,7 +401,7 @@ export class Viewer {
 
   /** The spot on a part under the pointer, and the camera, both as in the assembled rack; and the code its triangle came from. */
   probe(e: MouseEvent): Probe | null {
-    const hit = this.hit(e, undefined, false);
+    const hit = this.hit(this.ray(e), false);
     const data = hit?.object.parent?.userData;
     if (!hit || !data || hit.faceIndex == null || !hit.face) return null;
     const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
@@ -451,7 +453,7 @@ export class Viewer {
    * nothing jumps: zooming then heads for that surface, and panning moves it with the pointer.
    */
   private retarget(e: MouseEvent) {
-    const hit = this.hit(e);
+    const hit = this.hit(this.ray(e));
     if (!hit) return;
     const view = this.controls.target.clone().sub(this.camera.position).normalize();
     const depth = hit.point.clone().sub(this.camera.position).dot(view);
@@ -459,7 +461,7 @@ export class Viewer {
   }
 
   /** The nearest surface shown under the pointer, of a part or a device (unless left out), unless a section cuts it away. */
-  private hit(e?: MouseEvent, ray = this.ray(e!), devices = true): THREE.Intersection | undefined {
+  private hit(ray: THREE.Raycaster, devices = true): THREE.Intersection | undefined {
     // Of a part, only its surface: the rest are marks drawn on it, and testing them costs as much.
     const surfaces = this.parts.children.filter((p) => p.visible).map((p) => p.getObjectByName('surface')!);
     const shown = [...surfaces, ...(devices && this.devices.visible ? this.devices.children : [])];
@@ -469,7 +471,7 @@ export class Viewer {
   /** The feature under the pointer, at a hit: what's within REACH pixels of it counts. */
   private feature(e: MouseEvent): Feature | null {
     const ray = this.ray(e);
-    const hit = this.hit(e, ray);
+    const hit = this.hit(ray);
     if (!hit) return null;
     return featureAt(hit, ray.ray, REACH * pixel(this.camera, hit.distance, this.host.clientHeight), e.shiftKey);
   }
@@ -494,7 +496,7 @@ export class Viewer {
     }
     const ray = this.ray(e);
     if (this.holeAt(ray)) return;
-    const hit = this.hit(e, ray);
+    const hit = this.hit(ray);
     let target = hit?.object;
     while (target && target.userData.row === undefined) target = target.parent ?? undefined;
     const data = target?.userData;

@@ -10,7 +10,7 @@
 use glam::{DVec2, DVec3};
 use i_overlay::i_shape::float::area::Area;
 
-use crate::csg::{Axis, Face, Solid};
+use crate::csg::{Face, Solid};
 use crate::mesh::{Tri, bounds};
 use crate::poly::{self, Contour, P2, Shapes};
 use crate::project::Project;
@@ -301,7 +301,7 @@ impl DeviceFit {
                 let (a, b) = (free - d * SLIT, root - d * SLIT);
                 let slit =
                     vec![[a, z_front], [a, z_free], [b, z_root], [root, z_root], [free, z_free], [free, z_front]];
-                cut.push(Solid::through(Axis::Y, vec![slit], through, &faces, SNUG).labeled("tongue slits"));
+                cut.push(Solid::through(vec![slit], through, &faces, SNUG).labeled("tongue slits"));
                 // Its root runs on along the wall's face, just inside the cavity, to round the corner it
                 // makes there.
                 let mut pocket = vec![
@@ -331,7 +331,7 @@ impl DeviceFit {
                 let hole = vec![[n0 - g, zb], [n1 + g, zb], [n1 + g, zf], [n0 - g, zf]];
                 let at_under = |_: f64| Some(under);
                 let tongue: [Face; 2] = [(&at_under, out - under), (&at_out, under - out)];
-                cut.push(Solid::through(Axis::Y, vec![hole], through, &tongue, ROUND).labeled("latch hole"));
+                cut.push(Solid::through(vec![hole], through, &tongue, ROUND).labeled("latch hole"));
             }
         }
 

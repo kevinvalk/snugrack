@@ -7,7 +7,7 @@ import type { Probe } from '../ui/viewport/viewer.ts';
 
 export const DIR = join(import.meta.dirname, '..', '.feedback');
 
-export type Turn = { who: 'user' | 'agent'; text: string; at: string };
+type Turn ={ who: 'user' | 'agent'; text: string; at: string };
 
 export type Note = {
   id: string;

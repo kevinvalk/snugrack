@@ -113,10 +113,10 @@ fn band(layers: &[(f64, Vec<Contour>)], base: f64) -> Solid {
             poly::inside(outer, [(pa.x + pb.x + pc.x) / 3.0, (pa.y + pb.y + pc.y) / 3.0])
         })
         .collect();
-    let mut edges = std::collections::HashMap::new();
+    let mut edge_faces = std::collections::HashMap::new();
     for [a, b, c] in &kept {
         for (from, to) in [(*a, *b), (*b, *c), (*c, *a)] {
-            *edges.entry((from.min(to), from.max(to))).or_insert(0) += 1;
+            *edge_faces.entry((from.min(to), from.max(to))).or_insert(0) += 1;
         }
     }
 
@@ -133,7 +133,7 @@ fn band(layers: &[(f64, Vec<Contour>)], base: f64) -> Solid {
         triangles.extend(if up { [surface, flat] } else { [[a, c, b], [a + n, b + n, c + n]] });
         // Each edge on the outline, taken in the face's counterclockwise order, gets a wall.
         for (from, to) in [(a, b), (b, c), (c, a)] {
-            if edges[&(from.min(to), from.max(to))] == 1 {
+            if edge_faces[&(from.min(to), from.max(to))] == 1 {
                 let wall = if up {
                     [[from, from + n, to + n], [from, to + n, to]]
                 } else {

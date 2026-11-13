@@ -74,13 +74,13 @@
         <Download size={16} /> Export STLs
       </button>
       <div id="export" popover class="mt-1 min-w-56 open:grid [position-area:bottom_span-left]">
-        <button class="btn btn-quiet justify-between text-ink" popovertarget="export" popovertargetaction="hide" onclick={() => studio.exportAll()}>
+        <button class="btn btn-quiet justify-between" popovertarget="export" popovertargetaction="hide" onclick={() => studio.exportAll()}>
           <span class="inline-flex items-center gap-1.5"><Download size={16} /> All parts (.zip)</span>
           <span class="text-muted">{studio.grams.toFixed(0)} g</span>
         </button>
         <hr class="my-1 border-line" />
         {#each meshes as m (`${m.row} ${m.kind} ${m.device}`)}
-          <button class="btn btn-quiet justify-between gap-6 text-ink" popovertarget="export" popovertargetaction="hide" onclick={() => studio.exportPart(m)} title="STL, oriented as it prints">
+          <button class="btn btn-quiet justify-between gap-6" popovertarget="export" popovertargetaction="hide" onclick={() => studio.exportPart(m)} title="STL, oriented as it prints">
             {partName(m)}
             <span class="text-muted">{m.size.map((v) => v.toFixed(0)).join(' × ')} mm · {m.grams.toFixed(0)} g</span>
           </button>

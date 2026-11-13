@@ -24,6 +24,12 @@ export default function feedback(): Plugin {
       server.watcher.on('all', (_, path) => path.startsWith(store.DIR) && server.ws.send('feedback:changed', {}));
 
       server.middlewares.use('/__feedback', async (req, res) => {
+        // CORS only hides answers from other sites, their simple POSTs still land: one could write notes the agent
+        // takes for the user's. Browsers mark such requests; the overlay's are same-origin, the MCP server's unmarked.
+        if (req.headers['sec-fetch-site'] === 'cross-site') {
+          res.statusCode = 403;
+          return res.end();
+        }
         try {
           const path = req.url ?? '/';
           if (req.method === 'GET' && path === '/notes') return send(res, await store.list());

@@ -38,27 +38,26 @@ const KEY = 'snugrack.doc';
 class Studio {
   doc = $state<Doc | null>(null);
   design = $state.raw<Design | null>(null);
-  status = $state<Status>({ busy: true });
-  selection = $state<Selection>(null);
-  /** Designs finished so far, so a test can wait for the next one instead of guessing. */
+  status = $state.raw<Status>({ busy: true });
+  selection = $state.raw<Selection>(null);
+  /** Designs finished so far, so a test can wait for the next one instead of guessing, and the header can say each. */
   designs = $state(0);
   /** Saves so far, so the header can say so after each. */
   saves = $state(0);
   /** The last distance measured on a device in the viewport, in mm, and which device. */
-  measured = $state<(Place & { mm: number }) | null>(null);
+  measured = $state.raw<(Place & { mm: number }) | null>(null);
   /** What went wrong with the last import, until the next one works or the user dismisses it. */
   notice = $state<string | null>(null);
   /** Each model's 3D scene for the viewer, by model id. */
   scenes = $state.raw<Record<string, Object3D>>({});
   private positions = new Map<string, Float32Array>();
   private latest = 0;
-  /** The project the design was made from, as JSON. */
-  private made = '';
+  /** The project the design was made from: the design's places are its, until the next design catches up. */
+  made = $state.raw<Project | null>(null);
 
   /** Open the saved document, or start a new one. */
   async open() {
-    // We were called Rackraft: a document saved under the old name opens too, and saves under the new one.
-    const saved: Doc | null = JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('rackraft.doc') ?? 'null');
+    const saved: Doc | null = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     const project = await engine.defaults();
     // A setting added since the document was saved takes its default, and so does one saved empty
     // (JSON keeps a number that isn't one as null).
@@ -78,7 +77,7 @@ class Studio {
 
   /** Whether the design is of the project as it is: rows on screen are the rows in the project. */
   get current() {
-    return JSON.stringify(this.doc?.project) === this.made;
+    return JSON.stringify(this.doc?.project) === JSON.stringify(this.made);
   }
 
   /** Filament for every part, in grams. */
@@ -105,11 +104,11 @@ class Studio {
       const design = await engine.generate(project);
       if (token !== this.latest) return;
       this.design = design;
-      this.made = JSON.stringify(project);
+      this.made = project;
       this.status = { busy: false, ms: performance.now() - started };
       this.designs++;
     } catch (e) {
-      if (token === this.latest) this.status = { busy: false, error: e instanceof Error ? e.message : String(e) };
+      if (token === this.latest) this.status = { busy: false, error: message(e) };
     }
   }
 
@@ -125,7 +124,7 @@ class Studio {
       await this.register(id, model, bytes);
       await set(id, bytes);
     } catch (e) {
-      this.notice = `Couldn’t read ${file.name}: ${e instanceof Error ? e.message : e}`;
+      this.notice = `Couldn’t read ${file.name}: ${message(e)}`;
       return;
     }
     this.notice = null;
@@ -278,6 +277,11 @@ class Studio {
     download(fileName(m), stl(m));
   }
 
+  /** The id of the model at a place in the design, which can lag the project as it is. */
+  designed(row: number, device: number | null): string | undefined {
+    return device === null ? undefined : this.made?.rows[row]?.devices[device];
+  }
+
   /** The model at a place in the rack, if it still exists. */
   model(row: number, device: number | null): Model | undefined {
     const id = device === null ? undefined : this.doc?.project.rows[row]?.devices[device];
@@ -318,8 +322,8 @@ const KINDS: Record<PartKind, string> = { faceplate: 'Faceplate', leftEar: 'Left
 
 /** Unique in the rack: where two devices in a row share a name, their place in it tells them apart. */
 export function partName(m: PartMesh): string {
-  const name = studio.model(m.row, m.device)?.name;
-  const named = (studio.doc?.project.rows[m.row]?.devices ?? []).filter((id) => studio.doc?.models[id]?.name === name);
+  const name = studio.doc?.models[studio.designed(m.row, m.device) ?? '']?.name;
+  const named = (studio.made?.rows[m.row]?.devices ?? []).filter((id) => studio.doc?.models[id]?.name === name);
   const which = name && named.length > 1 ? `${name} (${m.device! + 1})` : name;
   return [`Panel ${rowNumber(m.row)}`, KINDS[m.kind], which].filter(Boolean).join(' · ');
 }
@@ -328,6 +332,8 @@ export function partName(m: PartMesh): string {
 export const rowNumber = (row: number) => studio.doc!.project.rows.slice(0, row + 1).filter((r) => !r.racked).length;
 
 const fileName = (m: PartMesh) => `${slug(partName(m))}.stl`;
+
+export const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 const mm = (v: number) => `${v.toFixed(1)} mm`;
 const round = (v: number) => Math.round(v * 10) / 10;

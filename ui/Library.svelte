@@ -1,8 +1,12 @@
-<script lang="ts" module>
+<script lang="ts">
+  // Picks a device from the library and downloads its model in the browser, to import it as if dropped
+  // in. Any Add device menu opens it with `commandfor="library"`, and says which row with `data-row`, or by
+  // leaving it out, that it's for a device with its own rack ears.
+  import { message, studio } from './studio.svelte.ts';
+  import type { Direction } from './wasm/snugrack.js';
+
   /** Where the library lives; a remote one works the same, if it allows other sites to read it. */
   const LIBRARY = `${import.meta.env.BASE_URL}library.json`;
-
-  import type { Direction } from './wasm/snugrack.js';
 
   /** A device in the library: `glb` is a link to its model, absolute or relative to the library. */
   interface Entry {
@@ -15,13 +19,6 @@
     front?: Direction;
     up?: Direction;
   }
-</script>
-
-<script lang="ts">
-  // Picks a device from the library and downloads its model in the browser, to import it as if dropped
-  // in. Any Add device menu opens it with `commandfor="library"`, and says which row with `data-row`, or by
-  // leaving it out, that it's for a device with its own rack ears.
-  import { studio } from './studio.svelte.ts';
 
   let dialog: HTMLDialogElement;
   let row: number | null = null;
@@ -38,8 +35,6 @@
     });
     return [...Map.groupBy(hits, (e) => `${e.manufacturer} · ${e.category}`)];
   });
-
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   async function load() {
     job = { doing: 'Loading the library…' };
@@ -103,7 +98,7 @@
       <section aria-label={group}>
         <h3 class="px-2 pt-2 pb-1 text-xs font-medium text-muted">{group}</h3>
         {#each items as entry (entry.glb)}
-          <button class="btn btn-quiet w-full justify-between text-ink" disabled={!!job && 'doing' in job} onclick={() => pick(entry)}>
+          <button class="btn btn-quiet w-full justify-between" disabled={!!job && 'doing' in job} onclick={() => pick(entry)}>
             <span class="truncate">{entry.name}</span>
             <span class="text-muted">{entry.model}</span>
           </button>

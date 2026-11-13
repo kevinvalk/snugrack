@@ -32,5 +32,5 @@ theirs is in this repository or served by the app.
 ## Remove
 
 Delete `library/`, `public/library.json` and `ui/Library.svelte`; the `Library` and `LibraryBig` imports, `<Library />`
-and From library… lines in `ui/RackPanel.svelte`; the library test in `e2e.test.ts`; and the Device library section and
-`library/` line of the README.
+and From library… lines in `ui/RackPanel.svelte`; the library test in `e2e.test.ts`; and the Device library paragraph
+of the README.

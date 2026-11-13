@@ -62,8 +62,10 @@
   /** Start a note, with a screenshot of the page as it is now, pin and all. */
   async function begin(note: Draft) {
     draft = { note, png: '', text: '' };
+    // The user may have cancelled or started another note meanwhile, which takes a screenshot of its own.
+    const mine = draft;
     const png = await screenshot();
-    if (draft) draft.png = png;
+    if (draft === mine) draft.png = png;
   }
 
   // While pinning, the next click goes to us, not to the app.
@@ -113,7 +115,7 @@
 
   async function save() {
     if (!draft?.text.trim() || !draft.png) return;
-    const page = { selection: $state.snapshot(studio.selection), doc: $state.snapshot(studio.doc) };
+    const page = { selection: studio.selection, doc: $state.snapshot(studio.doc) };
     const note = { ...draft.note, thread: [{ who: 'user', text: draft.text.trim(), at: new Date().toISOString() }], page };
     await fetch('/__feedback/notes', { method: 'POST', body: JSON.stringify({ note, png: draft.png }) });
     draft = null;
@@ -160,8 +162,8 @@
         const meshes = studio.design?.meshes ?? [];
         value = {
           doc: $state.snapshot(studio.doc),
-          selection: $state.snapshot(studio.selection),
-          status: $state.snapshot(studio.status),
+          selection: studio.selection,
+          status: studio.status,
           warnings: studio.design?.warnings ?? [],
           parts: meshes.map((m) => ({ name: partName(m), size: m.size, grams: m.grams, sources: [...new Set(m.sources.map((s) => `${s.name} (${s.at})`))] })),
         };
@@ -220,7 +222,7 @@
               </footer>
             </form>
           {:else}
-            {#each n.thread as turn, i (i)}
+            {#each n.thread as turn}
               <p class={['whitespace-pre-wrap', turn.who === 'agent' && 'border-l-2 border-accent pl-2']}>{turn.text}</p>
             {/each}
             <form class="flex gap-1" onsubmit={(e) => (e.preventDefault(), replies[n.id]?.trim() && update(n, { say: { who: 'user', text: replies[n.id].trim() }, status: 'open' }))}>

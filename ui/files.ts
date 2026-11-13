@@ -17,7 +17,7 @@ const PLASTIC = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.7
 
 const gltf = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath(DRACO_GLTF_CONFIG));
 
-export interface LoadedModel {
+interface LoadedModel {
   scene: THREE.Object3D;
   /** World-space triangles in meters, flat xyz per vertex. */
   positions: Float32Array;

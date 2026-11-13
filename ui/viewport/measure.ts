@@ -206,6 +206,7 @@ export class Ruler {
   private color: THREE.Color;
   private changed: (m: Measurement) => void;
 
+  // Fields by hand, not parameter properties: the tests run this file under Node's type stripping, which has none.
   constructor(clip: THREE.Plane, devices: THREE.Object3D, color: THREE.Color, changed: (m: Measurement) => void) {
     [this.clip, this.devices, this.color, this.changed] = [clip, devices, color, changed];
   }

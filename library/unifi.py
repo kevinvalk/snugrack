@@ -131,8 +131,8 @@ def main():
         glb = re.search(rf"https://cdn\.ecomm\.ui\.com/products/{p['id']}/[\w-]+\.glb", page)
         if not glb:
             continue
-        entry = {"name": p["title"], "manufacturer": "Ubiquiti", "model": p["name"], "category": category}
-        entry["glb"] = glb[0]
+        entry = {"name": p["title"], "manufacturer": "Ubiquiti", "model": p["name"], "category": category,
+                 "glb": glb[0]}
         if side := front(get(glb[0], glb=True)):
             entry["front"] = side
         entries.append(entry)

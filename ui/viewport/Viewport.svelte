@@ -6,42 +6,43 @@
 
   const VIEWS: Record<ViewName, string> = { iso: 'Iso', front: 'Front', top: 'Top', side: 'Side', back: 'Back' };
   const LAYERS: Record<Layer, string> = { device: 'Devices', faceplate: 'Faceplates', cage: 'Cages' };
-  const CUTS = { x: 'Side cut', y: 'Plan cut', z: 'Depth cut' } as const;
+  const CUTS: Record<Section['axis'], string> = { x: 'Side cut', y: 'Plan cut', z: 'Depth cut' };
   const TOOLS = [
     { tool: 'measure', Icon: Ruler, label: 'Measure', hint: 'Measure between points, edges and faces' },
     { tool: 'hole', Icon: Circle, label: 'Hole', hint: 'Put a hole for a cable straight through a faceplate, where you click' },
   ] as const;
 
   /** For the view buttons; the viewer itself follows the app from inside `attach`. */
-  let viewer = $state.raw<Viewer>();
-  let hidden = $state<Layer[]>([]);
+  let viewer: Viewer | undefined;
+  let hidden = $state.raw<Layer[]>([]);
   let explode = $state(0);
   let cut = $state<'' | Section['axis']>('');
   let at = $state(0.5);
   let tool = $state<Tool>(null);
-  let measured = $state<Measurement>({ picked: 0, mm: null, degrees: null, device: null });
+  let measured = $state.raw<Measurement>({ picked: 0, mm: null, degrees: null, device: null });
   // Warnings the user has put away, by what they say; one that comes back changed shows again.
-  let dismissed = $state<string[]>([]);
+  let dismissed = $state.raw<string[]>([]);
   const warnings = $derived((studio.design?.warnings ?? []).map((w) => ({ ...w, key: JSON.stringify(w) })).filter((w) => !dismissed.includes(w.key)));
   // We frame the rack when its parts and devices change in number, not when a setting reshapes them.
   let framed = 0;
 
   const instances = $derived.by(() => {
-    const { design, doc, scenes } = studio;
-    if (!design || !doc) return [];
+    const { design, scenes } = studio;
+    if (!design) return [];
     return design.rows.flatMap((report, r) =>
       report.devices.flatMap((placed, d) => {
-        const object = scenes[doc.project.rows[r]?.devices[d]];
+        const object = scenes[studio.designed(r, d) ?? ''];
         return placed && object ? [{ model: object, matrix: placed.matrix, place: { row: r, device: d } }] : [];
       }),
     );
   });
 
-  // In the rack frame, from where each device's own frame is.
+  // In the rack frame, from where each device's own frame is. Where they are is the project's as it is, so a hole
+  // moved stays put while the next design runs.
   const holes = $derived(
     (studio.design?.rows ?? []).flatMap((report, row) =>
       report.devices.flatMap((placed, device) =>
-        placed ? studio.holes({ row, device }).map((h, hole) => ({ ...h, row, device, hole, origin: placed.origin, x: placed.origin[0] + h.x, y: placed.origin[1] + h.y })) : [],
+        placed ? (studio.doc?.project.holes ?? []).filter((h) => h.model === studio.designed(row, device)).map((h, hole) => ({ ...h, row, device, hole, origin: placed.origin, x: placed.origin[0] + h.x, y: placed.origin[1] + h.y })) : [],
       ),
     ),
   );
@@ -88,11 +89,12 @@
         framed = count;
       }
     });
-    $effect(() => v.set({ hidden: new Set(hidden), explode, tool, holes, section: cut ? { axis: cut, at } : null, selected: $state.snapshot(studio.selection) }));
+    $effect(() => v.set({ hidden: new Set(hidden), explode, tool, holes, section: cut ? { axis: cut, at } : null, selected: studio.selection }));
     return () => v.dispose();
   }
 
-  const empty = $derived(!studio.doc?.project.rows.some((r) => r.devices.length));
+  // Not while the rack is still opening.
+  const empty = $derived(studio.doc?.project.rows.every((r) => !r.devices.length) ?? false);
   // Floating bars over the 3D view.
   const overlay = 'flex flex-wrap items-center gap-1 rounded-lg border border-line bg-surface/90 p-1 backdrop-blur';
   const toggle = (layer: Layer) => (hidden = hidden.includes(layer) ? hidden.filter((l) => l !== layer) : [...hidden, layer]);
@@ -101,7 +103,7 @@
 <!-- Escape puts the tool away. -->
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (tool = null)} />
 
-<main class="relative overflow-hidden bg-[radial-gradient(circle_at_50%_40%,color-mix(in_srgb,var(--color-accent)_6%,transparent),transparent_60%)] max-xl:col-span-2 max-xl:row-start-2">
+<main class="relative overflow-hidden bg-radial-[circle_at_50%_40%] from-accent/6 to-transparent to-60% max-xl:col-span-2 max-xl:row-start-2">
   <div class={['absolute inset-0', tool && 'cursor-crosshair']} role="img" aria-label="3D view of the rack" {@attach attach}></div>
 
   {#if empty}
@@ -155,7 +157,7 @@
           <li class="flex items-start">
             <button class="btn btn-quiet h-auto min-h-8 grow py-1 text-left whitespace-normal text-ink" onclick={() => (studio.selection = { row: w.row, device: w.device })}>
               <TriangleAlert size={16} class="shrink-0 text-warn" />
-              {[!studio.doc?.project.rows[w.row]?.racked && `Panel ${rowNumber(w.row)}`, w.device !== null && (studio.model(w.row, w.device)?.name ?? 'device')].filter(Boolean).join(', ')}: {describe(w.issue)}
+              {[!studio.doc?.project.rows[w.row]?.racked && `Panel ${rowNumber(w.row)}`, w.device !== null && (studio.doc?.models[studio.designed(w.row, w.device) ?? '']?.name ?? 'device')].filter(Boolean).join(', ')}: {describe(w.issue)}
             </button>
             <button class="btn btn-quiet shrink-0" aria-label="Dismiss" title="Dismiss" onclick={() => (dismissed = [...dismissed, w.key])}><X size={16} /></button>
           </li>

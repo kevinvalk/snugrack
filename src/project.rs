@@ -74,6 +74,7 @@ pub struct Row {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Tsify)]
+#[serde(rename_all = "camelCase")]
 pub struct Hole {
     /// The device's model, by id: the hole goes wherever it does.
     pub model: String,
@@ -108,7 +109,7 @@ pub enum Side {
 }
 
 /// Gaps that decide how parts fit together. Tune these after a test print.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Tsify)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct Fit {
     /// Between the device and the faceplate nest, per side.
@@ -123,7 +124,7 @@ pub struct Fit {
     pub play: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Tsify)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct Build {
     pub plate: f64,

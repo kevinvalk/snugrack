@@ -1,7 +1,7 @@
 # AGENTS.md
 
-SnugRack designs 3D-printable rack mounts from devices' own models: a Rust core that knows the geometry (`src/`), built
-to WASM, and a Svelte app over it (`ui/`). The core hands over data, the UI puts it in words.
+How the user wants SnugRack worked on: what the code and the README don't say. Read the README for what it is and how to
+run and check it.
 
 ## Rule one: elegance
 
@@ -43,12 +43,12 @@ Never trade away behavior, safety or a test of what we must not get wrong.
 - **Ask, don't guess.** Not sure how a printer, slicer or library behaves, or which of two reasonable designs the user
   wants? Stop and ask, with your recommendation first. Batch questions, don't ask what the code or a sensible default
   answers. Where sources disagree, trust a printed part, then the slicer, then well-known printing guides, then the
-  spec (EIA-310).
+  spec (EIA-310). When the user describes a shape and you're unsure you see it, ask for a sketch or a model.
 - **The user reviews all code and does the commits.** Never stage, commit, stash or reset. Unexpected changes in the
   working tree are theirs: build on them, never revert them, say so if one looks wrong.
 - **Untracked files you didn't make aren't yours:** don't touch, move or clean them (no `git clean`, no `git stash -u`).
 - **Don't change code while the user is testing**, and don't build or run over their running app (`npm run dev` on
-  port 5173): check first (`pgrep`, `lsof`), and wait if it's busy.
+  port 5173): check first (`pgrep`, `lsof`), and wait if it's busy. Core changes only reach it when they restart it.
 - **Only the user prints parts and fits them to real devices.** Device models in `fixtures/` are theirs and never get
   committed: we don't know whether their makers allow it.
 - **Feedback notes:** the user pins notes in the running app; read them with the `snugrack-feedback` MCP tools
@@ -74,18 +74,20 @@ Never trade away behavior, safety or a test of what we must not get wrong.
   recovery, presentation or diagnosis, flatten nothing to strings early.
 - Work that outlives its caller gets an identity (a counter is enough): a late completion must never change what
   replaced it.
-- The core reaches the UI through `ui/wasm`, TypeScript types included (tsify). It's build output: `npm run dev`,
-  `build` and `check` make it, nobody edits or commits it.
+- `ui/wasm` is build output: nobody edits or commits it.
 - Keep side effects behind one module: storage in `studio.svelte.ts`, files in `files.ts`, the core and the mesh kernel
   in `engine/worker.ts`.
 
 ## Printing
 
 - Every part prints without supports in the orientation we export it: faceplates front down, cages back down. Keep
-  overhangs to short bridges, and walls to multiples of a line width.
+  overhangs to short straight bridges, and walls to multiples of a line width.
+- Anything that flexes bends within the layers of its part as printed, never across them.
 - Surfaces follow the device, not the layer height: no stair steps.
 - Every part is watertight; coplanar faces in the CSG tree are bugs waiting for float32, so cuts reach past the faces
   they open through.
+- Judge printability the way the printer sees it: slice the exported part and read its toolpaths layer by layer (what
+  each layer rests on, where it bridges), not just the angles of its faces.
 
 ## Tests
 
@@ -94,12 +96,9 @@ Never trade away behavior, safety or a test of what we must not get wrong.
 - A regression test must fail without the fix: break the code on purpose and watch it fail before you trust it.
 - Before calling anything done: `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check`,
   `npm run check` and `npm run e2e`.
-
-## Verifying in the running app
-
-`npm run e2e` (see Check in the README) serves the built app on port 4174, never touching the user's dev server or data.
-Look at every screenshot in `test-results/` of what you touched. `SNUGRACK_MODELS=fixtures/a.glb,...` adds the user's
-real models. Nothing may be left listening afterwards. Keep it passing without a slicer or fixtures, as CI runs it.
+- See your work in `npm run e2e`, not the user's app: it serves the build on port 4174, away from their dev server and
+  data. Look at every screenshot in `test-results/` of what you touched, add their models with `SNUGRACK_MODELS`, leave
+  nothing listening, and keep it passing without a slicer or fixtures, as CI runs it.
 
 ## UI
 

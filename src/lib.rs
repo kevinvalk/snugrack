@@ -38,8 +38,8 @@ pub struct Device {
 type Fitted = ((Fit, Build), Option<Rc<DeviceFit>>);
 
 impl Device {
-    /// `positions`: flat triangle list in model units.
-    pub fn new(positions: &[f32], orientation: &mesh::Orientation) -> Self {
+    /// `positions`: flat triangle list in meters, glTF's unit.
+    pub fn new(positions: &[f32], orientation: &Orientation) -> Self {
         let (tris, to_device) = mesh::normalize(positions, orientation);
         Device { to_device, ..Device::from(tris) }
     }
@@ -52,7 +52,7 @@ impl Device {
 
     /// None for a device with nothing to fit, as a model scaled to nothing has.
     fn fit(&self, p: &Project) -> Option<Rc<DeviceFit>> {
-        let settings = (p.fit.clone(), p.build.clone());
+        let settings = (p.fit, p.build);
         let mut last = self.fitted.borrow_mut();
         match &*last {
             Some((made, fit)) if *made == settings => fit.clone(),
@@ -81,7 +81,7 @@ impl Models {
         Models::default()
     }
 
-    /// `positions`: flat triangle list in model units.
+    /// `positions`: flat triangle list in meters, glTF's unit.
     pub fn mesh(&mut self, id: String, positions: &[f32], orientation: Ts<Orientation>) -> Result<(), JsError> {
         self.0.insert(id, Device::new(positions, &orientation.to_rust()?));
         Ok(())

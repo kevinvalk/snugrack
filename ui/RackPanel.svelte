@@ -7,7 +7,6 @@
 
   const RACKS: Record<RackWidth['kind'], string> = { inch19: '19″', inch10: '10″', fit: 'Fit', custom: 'Custom' };
 
-
   const issues = (row: number, device: number | null) =>
     (studio.design?.warnings ?? []).filter((w) => w.row === row && w.device === device).map((w) => describe(w.issue));
   const selected = (s: Selection) => {
@@ -74,7 +73,6 @@
     },
     ondragend: () => ([drag, target] = [null, null]),
   });
-  const menuItem = 'btn btn-quiet text-ink';
 
   /** Up and down go from item to item, selecting each, Home and End to the first and the last, as in a file tree. */
   function walk(e: KeyboardEvent) {
@@ -166,20 +164,20 @@
   {@const { models } = studio.doc!}
   {@const menu = `add-${r ?? 'rack'}`}
   <button class={item} popovertarget={menu}><Plus size={16} /> {label}</button>
-  <div id={menu} popover class="mt-0.5 min-w-56 open:grid [position-area:bottom_span-right]">
+  <div id={menu} popover class="mt-1 min-w-56 open:grid [position-area:bottom_span-right]">
     {#each Object.entries(models) as [id, m] (id)}
-      <button class={menuItem} popovertarget={menu} popovertargetaction="hide" onclick={() => studio.place(id, r)}>
+      <button class="btn btn-quiet" popovertarget={menu} popovertargetaction="hide" onclick={() => studio.place(id, r)}>
         {#if m.box}<Box size={16} />{:else}<HardDrive size={16} />{/if}
         {m.name}
       </button>
     {/each}
     {#if Object.keys(models).length}<hr class="my-1 border-line" />{/if}
-    <label class={menuItem}>
+    <label class="btn btn-quiet has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-accent">
       <Upload size={16} /> Import model…
       <input
+        class="sr-only"
         type="file"
         accept={MODEL_FILES}
-        hidden
         onchange={(e) => {
           const file = e.currentTarget.files?.[0];
           if (file) studio.importModel(file, r);
@@ -188,8 +186,8 @@
         }}
       />
     </label>
-    <button class={menuItem} commandfor="library" command="show-modal" data-row={r}><LibraryBig size={16} /> From library…</button>
-    <button class={menuItem} popovertarget={menu} popovertargetaction="hide" title="A plain box, for a device without a 3D model: set its size on the right" onclick={() => studio.addBox(r)}><Box size={16} /> New box</button>
+    <button class="btn btn-quiet" commandfor="library" command="show-modal" data-row={r}><LibraryBig size={16} /> From library…</button>
+    <button class="btn btn-quiet" popovertarget={menu} popovertargetaction="hide" title="A plain box, for a device without a 3D model: set its size on the right" onclick={() => studio.addBox(r)}><Box size={16} /> New box</button>
   </div>
 {/snippet}
 

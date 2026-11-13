@@ -103,18 +103,16 @@ impl Solid {
         Solid::Mesh { vertices, triangles }
     }
 
-    /// A cut along `axis`, X or Y, from `lo` to `hi`, of outlines in (across, z), widened across
-    /// where it opens through `faces`, so the corners it leaves in the layer plane are rounded by
-    /// `r`, or half the wall where that's thinner. A face is where it lies along the axis at each
-    /// point across, if it runs flat enough there, and the wall's thickness behind it, signed.
-    /// Only across: the outlines' tops and bottoms, bridges as the part prints, stay put.
-    pub fn through(axis: Axis, contours: Vec<Contour>, (lo, hi): (f64, f64), faces: &[Face], r: f64) -> Solid {
-        // Along Y a prism's profile is (z, x), so we swap the outlines' (across, z).
-        let swap = |c: &Contour| c.iter().map(|p| [p[1], p[0]]).collect();
-        let profile = if axis == Axis::Y { contours.iter().map(swap).collect() } else { contours.clone() };
-        let place = |v: f64, u: f64, z: f64| if axis == Axis::X { [v, u, z] } else { [u, v, z] };
-        let rims = rims(&contours, (lo, hi), faces, r, &place);
-        Solid::union([vec![Solid::prism(axis, profile, lo, hi)], rims].concat())
+    /// A cut along y from `lo` to `hi`, of outlines in (x, z), widened across where it opens through
+    /// `faces`, so the corners it leaves in the layer plane are rounded by `r`, or half the wall where
+    /// that's thinner. A face is where it lies along y at each x, if it runs flat enough there, and
+    /// the wall's thickness behind it, signed. Only across: the outlines' tops and bottoms, bridges as
+    /// the part prints, stay put.
+    pub fn through(contours: Vec<Contour>, (lo, hi): (f64, f64), faces: &[Face], r: f64) -> Solid {
+        // Along y a prism's profile is (z, x).
+        let profile = contours.iter().map(|c| c.iter().map(|p| [p[1], p[0]]).collect()).collect();
+        let rims = rims(&contours, (lo, hi), faces, r, &|y, x, z| [x, y, z]);
+        Solid::union([vec![Solid::prism(Axis::Y, profile, lo, hi)], rims].concat())
     }
 
     /// [`Solid::through`] a wall that bends: `place` takes a point from how deep into the wall, how
@@ -274,7 +272,7 @@ mod tests {
     fn a_cut_through_a_wall_widens_across_at_its_faces() {
         let (near, far) = (|_: f64| Some(0.0), |_: f64| Some(2.0));
         let faces: [Face; 2] = [(&near, 2.0), (&far, -2.0)];
-        let cut = Solid::through(Axis::Y, poly::rect(0.0, 0.0, 10.0, 5.0).concat(), (-1.0, 3.0), &faces, 0.5);
+        let cut = Solid::through(poly::rect(0.0, 0.0, 10.0, 5.0).concat(), (-1.0, 3.0), &faces, 0.5);
         let rims: Vec<&Solid> = cut.pieces().into_iter().filter(|p| matches!(p, Solid::Mesh { .. })).collect();
         assert_eq!(rims.len(), 2);
         let near = |a: f64, b: f64| (a - b).abs() < 1e-9;

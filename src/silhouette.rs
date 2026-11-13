@@ -63,11 +63,11 @@ fn snap(v: f64) -> f64 {
 }
 
 /// Clip a convex polygon against `z >= c` (`keep_above`) or `z <= c`.
-fn clip(poly: &[DVec3], c: f64, keep_above: bool) -> Vec<DVec3> {
+fn clip(polygon: &[DVec3], c: f64, keep_above: bool) -> Vec<DVec3> {
     let inside = |p: &DVec3| if keep_above { p.z >= c } else { p.z <= c };
-    let mut out = Vec::with_capacity(poly.len() + 1);
-    for (i, &a) in poly.iter().enumerate() {
-        let b = poly[(i + 1) % poly.len()];
+    let mut out = Vec::with_capacity(polygon.len() + 1);
+    for (i, &a) in polygon.iter().enumerate() {
+        let b = polygon[(i + 1) % polygon.len()];
         if inside(&a) {
             out.push(a);
         }

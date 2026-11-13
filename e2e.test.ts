@@ -20,6 +20,8 @@ import { preview } from 'vite';
 
 const server = await preview({ preview: { port: 4174, strictPort: true }, logLevel: 'silent' });
 const browser = await chromium.launch();
+// What an earlier run left would pass for this one's.
+await rm('test-results', { recursive: true, force: true });
 await mkdir('test-results', { recursive: true });
 /** PrusaSlicer, if it's here: set PRUSASLICER to point at it elsewhere. */
 const SLICER = process.env.PRUSASLICER ?? '/Applications/PrusaSlicer.app/Contents/MacOS/PrusaSlicer';
@@ -147,7 +149,7 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   }
   // A click picks what the section leaves in view, not the box it cut away in front of it.
   await view.click({ position: { x: width * 0.45, y: height * 0.46 } });
-  assert.equal((await nav.locator('[aria-current=true]').textContent())?.trim(), 'device');
+  assert.equal(oneLine(await nav.locator('[aria-current=true]').textContent()), 'device');
 
   // A drag that ends outside the layout is over: a drop after it moves nothing, as the layout below shows.
   const device = nav.getByRole('button', { name: 'device', exact: true });
@@ -244,7 +246,7 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   await panel.screenshot({ path: 'test-results/device-panel.png' });
   await rackDevice.focus();
   await page.keyboard.press('ArrowDown');
-  assert.equal(oneLine((await nav.locator('[aria-current=true]').textContent())!), 'cage');
+  assert.equal(oneLine(await nav.locator('[aria-current=true]').textContent()), 'cage');
   await page.keyboard.press('ArrowUp');
   await designed(page, () => panel.getByLabel('Place').selectOption({ label: 'On its own rack ears' }));
   assert.deepEqual(await order(), ['Panel 1 1U', 'Panel 2 1U', 'Panel 3 1U', 'Switch 1U']);
@@ -424,7 +426,8 @@ function slice(stl: string): string {
 }
 
 /**
- * Weight in grams (at 1.25 g/cm³), the area facing down more than 45 degrees off the bed, and the
+ * Weight in grams (at 1.25 g/cm³); the overhang, the area of faces off the bed that lean out more
+ * than 46 degrees from upright, a degree past the 45-degree slopes we print without support; and the
  * edges where the surface doesn't close: walked one way more often than the other, once identical
  * float32 vertices merge. A pinch, where a window's corner just touches the cavity and four faces
  * share an edge, still closes and slices.

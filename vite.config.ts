@@ -5,7 +5,6 @@ import feedback from './feedback/vite.ts';
 
 export default defineConfig({
   base: './',
-  // Feedback for the agent runs on the dev server only.
   plugins: [tailwindcss(), svelte(), feedback()],
   // manifold-3d locates its .wasm via import.meta.url; pre-bundling would break that.
   optimizeDeps: { exclude: ['manifold-3d'] },

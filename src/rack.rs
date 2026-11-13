@@ -15,6 +15,7 @@ use crate::mount::{DeviceFit, EPS, Module, ROUND};
 use crate::poly;
 use crate::project::{Align, Panel, Project, RackWidth, Side, U};
 
+/// Between neighboring rows' panels, half at each edge, so stacked rows don't bind.
 const PANEL_GAP: f64 = 0.8;
 /// How much the faceplate's corners are rounded at the row's ends.
 const CORNER: f64 = 1.5;
@@ -22,6 +23,8 @@ const CORNER: f64 = 1.5;
 const RAIL_GAP: f64 = 2.0;
 /// EIA-310 holes we use, from the bottom of each unit (the middle one at 22.225 is optional).
 const EAR_HOLES: [f64; 2] = [6.35, 38.1];
+/// The ears' holes are slots EAR_HOLE wide, for an M6 screw, with their round ends' centers EAR_SLOT apart, so the
+/// panel can shift sideways to meet rails a little off their nominal spacing.
 const EAR_HOLE: f64 = 6.6;
 const EAR_SLOT: f64 = 3.0;
 /// Neighboring pieces bolt together with M3 screws, 8 to 12 mm long, and M3 nuts, square or hex.
@@ -39,7 +42,7 @@ const RIB_DEPTH: f64 = 40.0;
 /// where the back screws' lever is shorter. The middle screw goes through it, in a hole wide enough
 /// for a flanged button head (ISO 7380-2, 6.9 mm) and the key, with its mouth chamfered.
 const GUSSET: f64 = 10.0;
-const RISE: f64 = GUSSET * 1.732;
+const RISE: f64 = GUSSET * 1.732_050_807_568_877_2; // √3
 const CLEAR: f64 = 8.0;
 const CHAMFER: f64 = 1.0;
 /// Where the screws go, in holes BOLT wide: the middle one this far behind the plate, the two at
@@ -66,7 +69,7 @@ const HOLE_PAST: f64 = 0.4;
 /// From the joint face to the collar's inside, where the cage slides: past the longest screw's hole,
 /// 0.8 mm of wall.
 const BLOCK: f64 = SCREW - RIB + HOLE_PAST + 0.8;
-/// Room between a collar and the next one in a row printed whole, or the end of a plain row.
+/// Room either side of a collar in a row printed whole, and at the end of a plain row.
 const MARGIN: f64 = 8.0;
 /// Room between a collar and the rib a screw goes in through: an M3x12 with its head is 15 mm
 /// long, and a standard 2.5 mm L-key's short leg about 18 (ISO 2936).
@@ -74,7 +77,7 @@ const SCREW_ROOM: f64 = 20.0;
 /// How much taller than its units a device with its own ears may be: models have feet, and makers round.
 const UNIT_SLACK: f64 = 1.0;
 
-#[derive(Clone, Debug, Serialize, Tsify)]
+#[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct Assembly {
     pub parts: Vec<Part>,
@@ -83,7 +86,7 @@ pub struct Assembly {
     pub panel: Panel,
 }
 
-#[derive(Clone, Debug, Serialize, Tsify)]
+#[derive(Debug, Serialize, Tsify)]
 pub struct Part {
     pub row: usize,
     pub kind: PartKind,
@@ -148,7 +151,7 @@ pub enum Issue {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Tsify)]
+#[derive(Debug, Serialize, Tsify)]
 pub struct RowReport {
     /// By index in the row; none where the device is left out.
     pub devices: Vec<Option<DeviceReport>>,
@@ -235,7 +238,7 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
         if row.racked {
             let device = row.devices.first().map(|id| (id, models.get(id)));
             let size = device.and_then(|(_, d)| d).map_or(DVec3::ZERO, |d| d.profile.size);
-            let units = if size.y > 0.0 { ((size.y - UNIT_SLACK) / U).ceil().max(1.0) as u32 } else { 1 };
+            let units = ((size.y - UNIT_SLACK) / U).ceil().max(1.0) as u32;
             top -= units as f64 * U;
             let mut devices = vec![None; row.devices.len()];
             match device {
@@ -247,9 +250,9 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
             rows.push(RowReport { devices, width: size.x, room: panel.width, gaps: Vec::new(), units });
             continue;
         }
-        let units = row.units.max(1) as f64;
-        let (y0, y1) = (top - units * U + PANEL_GAP / 2.0, top - PANEL_GAP / 2.0);
-        top -= units * U;
+        let units = row.units.max(1);
+        let (y0, y1) = (top - units as f64 * U + PANEL_GAP / 2.0, top - PANEL_GAP / 2.0);
+        top -= units as f64 * U;
 
         // Lay the devices out side by side, each with its room either side of its collar.
         // A device we have no model for, nothing to fit, or a cage that doesn't fit the row, is left
@@ -384,7 +387,7 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
         for ((i, device, f), (_, m)) in fitted.iter().zip(&modules) {
             devices[*i] = Some(report(device, f.size, f.retention, f.recess > 0.0, m.shift));
         }
-        rows.push(RowReport { devices, width: total, room: hi - lo, gaps, units: units as u32 });
+        rows.push(RowReport { devices, width: total, room: hi - lo, gaps, units });
 
         // Each device's cable holes, where it sits: their centers, across, and outlines. A full turn ends where it
         // starts: once will do.
@@ -428,7 +431,7 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
             for (x, side) in [(-hole_x, row.left), (hole_x, row.right)] {
                 if ear(side) && x > x0 && x < x1 {
                     let unit_bottom = y0 - PANEL_GAP / 2.0;
-                    let ys = (0..row.units.max(1)).flat_map(|u| EAR_HOLES.map(|h| unit_bottom + u as f64 * U + h));
+                    let ys = (0..units).flat_map(|u| EAR_HOLES.map(|h| unit_bottom + u as f64 * U + h));
                     let slots = ys.map(|y| poly::stadium(x - EAR_SLOT / 2.0, x + EAR_SLOT / 2.0, y, EAR_HOLE / 2.0));
                     cut.push(Solid::prism_z(slots.collect(), -t - 1.0, 1.0).labeled("ear slots"));
                 }
@@ -440,8 +443,9 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
             // Holes go straight through all of the piece, collar, ribs and a tongue reaching past its edge too, cut
             // last: moving one leaves the rest of the piece as it was, which the mesh kernel then reuses.
             let mut solid = Solid::difference(Solid::union(add), cut);
-            let (lo, hi) = (x0 - TONGUE, x1 + TONGUE);
-            let holes: Vec<_> = cables.iter().filter(|(a, b, _)| *b > lo && *a < hi).map(|(.., c)| c.clone()).collect();
+            let (reach0, reach1) = (x0 - TONGUE, x1 + TONGUE);
+            let holes: Vec<_> =
+                cables.iter().filter(|(a, b, _)| *b > reach0 && *a < reach1).map(|(.., c)| c.clone()).collect();
             if !holes.is_empty() {
                 let deep = -t - p.build.collar_depth.max(RIB_DEPTH) - 1.0;
                 solid = Solid::difference(solid, vec![Solid::prism_z(holes, deep, 1.0).labeled("cable holes")]);
@@ -486,7 +490,7 @@ fn joint(
         add.push(Solid::prism_z(fillets, -t - p.build.collar_depth, -t + EPS).labeled("block fillets"));
         add.push(Solid::prism_z(outline, -t - RIB_DEPTH, -t + EPS).labeled("joint block"));
         let end = edge + into * (SCREW - RIB + HOLE_PAST);
-        cut.push(Solid::prism_x(holes.clone(), edge - into, end).labeled("screw holes"));
+        cut.push(Solid::prism_x(holes, edge - into, end).labeled("screw holes"));
         // A trap's floor is a shallow V: a hex nut lands on a corner, a square one on two, and both end up centered on
         // the screw's axis. Its corners stay square, to hold the nut.
         let (w, deep, apex) = (NUT / 2.0 + NUT_GAP, -t - RIB_DEPTH - 1.0, NUT_CORNERS / 2.0);
@@ -503,14 +507,14 @@ fn joint(
         let ring = |z: f64, x: f64| at(z, poly::rounded_rect(edge.min(x), ry0, edge.max(x), ry1, ROUND));
         let rib = vec![ring(-t + EPS, slope(-t + EPS)), ring(-t - RISE, face), ring(-t - RIB_DEPTH, face)];
         add.push(Solid::loft(rib).labeled("joint rib"));
-        cut.push(Solid::prism_x(holes.clone(), edge - into, face + into).labeled("screw holes"));
+        cut.push(Solid::prism_x(holes, edge - into, face + into).labeled("screw holes"));
         // Through the gusset, room for the middle screw's head and the tool, its mouth chamfered CHAMFER wide where it
         // meets the slope.
         let clear = vec![poly::teardrop(middle.0, middle.1, CLEAR / 2.0)];
         // The hole's outline scaled, so the rings pair up point for point.
         let mouth = |k: f64, off: f64| -> Vec<[f64; 3]> {
-            let at = |[y, z]: poly::P2| [middle.0 + k * (y - middle.0), middle.1 + k * (z - middle.1)];
-            clear[0].iter().map(|&q| at(q)).map(|[y, z]| [slope(z) + into * off, y, z]).collect()
+            let scaled = |[y, z]: poly::P2| [middle.0 + k * (y - middle.0), middle.1 + k * (z - middle.1)];
+            clear[0].iter().map(|&q| scaled(q)).map(|[y, z]| [slope(z) + into * off, y, z]).collect()
         };
         let rings = vec![mouth(1.0, -CHAMFER), mouth(1.0 + 3.0 * CHAMFER / CLEAR, CHAMFER / 2.0)];
         cut.push(Solid::prism_x(clear, face, face + into * (GUSSET + 0.5)).labeled("middle screw clearance"));
@@ -540,7 +544,7 @@ fn joint(
 mod tests {
     use super::*;
     use crate::mesh;
-    use crate::project::{Hole, Row};
+    use crate::project::{Build, Fit, Hole, Row};
 
     /// A 150 x 30 x 100 box, one 50 tall, and one 100 x 20 x 60 with its upright edges chamfered
     /// 5 mm at 45 degrees, front and back.
@@ -1006,7 +1010,6 @@ mod tests {
                 .map(|i| (format!("m{i}"), Device::boxed([rand(5.0, 400.0), rand(5.0, 120.0), rand(5.0, 300.0)])))
                 .collect();
             let side = |x: f64| [Side::Ear, Side::BoltedEar, Side::Joiner, Side::Plain][(x * 4.0) as usize % 4];
-            use crate::project::{Build, Fit};
             let p = Project {
                 rack: [RackWidth::Inch19, RackWidth::Inch10, RackWidth::Fit][rand(0.0, 3.0) as usize % 3],
                 build: Build {

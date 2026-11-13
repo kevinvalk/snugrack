@@ -65,14 +65,14 @@
   </label>
 {/snippet}
 
-{#snippet toggle(label: string, obj: Record<string, any>, key: string, hint = '', onchange?: () => void)}
+{#snippet toggle(label: string, obj: Record<string, any>, key: string, hint?: string, onchange?: () => void)}
   <label class={field} title={hint}>
     {label}
     <input class={knob} type="checkbox" bind:checked={obj[key]} {onchange} />
   </label>
 {/snippet}
 
-{#snippet fact(label: string, value: string, suffix = '', hint = '')}
+{#snippet fact(label: string, value: string, suffix = '', hint?: string)}
   <p class={field} title={hint}>{label} <span>{value} {#if suffix}<span class={unit}>{suffix}</span>{/if}</span></p>
 {/snippet}
 

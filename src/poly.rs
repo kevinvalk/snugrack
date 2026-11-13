@@ -18,12 +18,12 @@ pub type Shapes = Vec<Vec<Contour>>;
 pub fn union_polygons(polys: impl IntoIterator<Item = Contour>) -> Shapes {
     let contours: Vec<Contour> = polys
         .into_iter()
-        .filter(|c| c.area().abs() > 1e-7)
-        .map(|mut c| {
-            if c.area() < 0.0 {
+        .filter_map(|mut c| {
+            let area = c.area();
+            if area < 0.0 {
                 c.reverse();
             }
-            c
+            (area.abs() > 1e-7).then_some(c)
         })
         .collect();
     contours.simplify_shape(FillRule::NonZero)
