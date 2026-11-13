@@ -35,19 +35,20 @@ which your browser downloads as you pick one. `library/unifi.py` refreshes Ubiqu
 The faceplate has a collar on its back, a short sleeve the cage's front slides into, with two nubs on each of its inner
 top and bottom faces. The cage's top and bottom walls each have two tongues cut into them, at their left and right ends,
 as far out as the device's top and underside run flat: each rooted at its inner end, free along its outer end and its
-back edge, and 1.2 mm thick, with room behind it to bend in without touching the device. Where the wall is too thin for
-that room, it stands a little proud over the tongue, and the collar follows; under the device, the air it rests on gives
-some of the room, and under the ledges, where the wall runs higher, the bottom tongues run on level with the wall over
-the air. Between the tongues, the openings in the top and bottom reach right up to the collar. As the cage goes in, the
-tongues ride up the nubs' ramps and bend in, until the nubs snap into holes in them. Now the nubs hold against pulling,
-the faceplate itself against pushing, and the device is held between the faceplate's nest and the struts at the cage's
-back. The tongues reach 9 mm past the collar: to release, squeeze the cage's top and bottom in there, both sides, and
-pull the cage out backwards. The cage prints standing on its back, so the tongues bend within its layers, not across
-them; the nubs' catches stand at 60 degrees to the pull, a ledge under a millimeter high at 30 degrees as the faceplate
-prints, which needs no support, and they give way to a hard pull before anything breaks. A tongue is just long enough
-not to strain more than 1.5% at its root. Where there's no room for the latch, the cage isn't latched, and says why: the
-device's top or underside doesn't run flat for long enough, the panel is too low for the collar round the tongues, or
-the cage is too short. The rack's Fit tunes how far the nubs reach and how much play the cage has once latched.
+back edge, and as thick as the wall, with room behind it to bend in without touching the device. Where the device leaves
+too little of that room, the wall stands a little proud over the tongue, and the collar follows; under the device, the
+air it rests on gives some of the room, and under the ledges, where the wall runs higher, the bottom tongues run on
+level with the wall over the air. Between the tongues, the openings in the top and bottom reach right up to the collar.
+As the cage goes in, the tongues ride up the nubs' ramps and bend in, until the nubs snap into holes in them. Now the
+nubs hold against pulling, the faceplate itself against pushing, and the device is held between the faceplate's nest and
+the struts at the cage's back. The tongues reach 9 mm past the collar: to release, squeeze the cage's top and bottom in
+there, both sides, and pull the cage out backwards. The cage prints standing on its back, so the tongues bend within its
+layers, not across them; the nubs' catches stand at 60 degrees to the pull, a ledge under a millimeter high at 30
+degrees as the faceplate prints, which needs no support, and they give way to a hard pull before anything breaks. A
+tongue is just long enough not to strain more than 1.5% at its root. Where there's no room for the latch, the cage isn't
+latched, and says why: the device's top or underside doesn't run flat for long enough, the panel is too low for the
+collar round the tongues, or the cage is too short. The rack's Fit tunes how far the nubs reach and how much play the
+cage has once latched.
 
 ## Joints
 

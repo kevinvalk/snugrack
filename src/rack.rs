@@ -1017,6 +1017,7 @@ mod tests {
                     collar_depth: rand(2.0, 30.0),
                     back: rand(0.0, 10.0),
                     air: rand(0.0, 5.0),
+                    overhang: rand(30.0, 75.0),
                 },
                 fit: Fit { nest: rand(0.0, 1.0), cage: rand(0.0, 1.0), hook: rand(0.2, 2.0), ..Fit::default() },
                 rows: (0..rand(1.0, 4.0) as usize)

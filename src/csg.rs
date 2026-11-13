@@ -20,6 +20,9 @@ pub enum Axis {
 /// A face a [`Solid::through`] opens through.
 pub type Face<'a> = (&'a dyn Fn(f64) -> Option<f64>, f64);
 
+/// Where a point of a cut through a wall goes, from how deep into the wall, how far across and its z.
+pub type Place<'a> = dyn Fn(f64, f64, f64) -> [f64; 3] + 'a;
+
 #[derive(Clone, Debug, Serialize, Tsify)]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum Solid {
@@ -109,46 +112,17 @@ impl Solid {
         // Along Y a prism's profile is (z, x), so we swap the outlines' (across, z).
         let swap = |c: &Contour| c.iter().map(|p| [p[1], p[0]]).collect();
         let profile = if axis == Axis::Y { contours.iter().map(swap).collect() } else { contours.clone() };
-        let mut parts = vec![Solid::prism(axis, profile, lo, hi)];
-        for (face, behind) in faces {
-            let (r, into) = (r.min(behind.abs() / 2.0), behind.signum());
-            // Into the wall: a quarter circle, which meets the cut's sides along them, not at an
-            // angle a nozzle would slow down for, then on in past them.
-            let steps = [vec![[-2.0 * r, r]], poly::arc([r, r], r, 180.0, 90.0), vec![[1.5 * r, -0.4 * r]]].concat();
-            for c in &contours {
-                // Each point moves across the way its corner faces, where the face runs flat, and
-                // as far along as the face lies halfway across that move, where the face slopes.
-                let turn = if Area::area(c.as_slice()) < 0.0 { -1.0 } else { 1.0 };
-                let n = c.len();
-                let across = |a: P2, b: P2| turn * (b[1] - a[1]) / (b[0] - a[0]).hypot(b[1] - a[1]).max(1e-12);
-                let points: Vec<(P2, f64, Option<f64>)> = (0..n)
-                    .map(|i| {
-                        let (a, p, b) = (c[(i + n - 1) % n], c[i], c[(i + 1) % n]);
-                        let side = across(a, p) + across(p, b);
-                        let at = face(p[0] + side.signum() * r / 2.0)
-                            .filter(|at| side.abs() > 1e-9 && (lo..=hi).contains(at));
-                        (p, side.signum(), at)
-                    })
-                    .collect();
-                let flat: Vec<f64> = points.iter().filter_map(|q| q.2).collect();
-                if flat.is_empty() {
-                    continue;
-                }
-                let middle = flat.iter().sum::<f64>() / flat.len() as f64;
-                let ring = |&[t, w]: &P2| {
-                    let point = |&(p, side, at): &(P2, f64, Option<f64>)| {
-                        let (u, at) = (p[0] + at.map_or(0.0, |_| side * w), at.unwrap_or(middle));
-                        // Out of the wall no further than the cut reaches.
-                        let t = t.max(-(if into > 0.0 { at - lo } else { hi - at }));
-                        let v = at + into * t;
-                        if axis == Axis::X { [v, u, p[1]] } else { [u, v, p[1]] }
-                    };
-                    points.iter().map(point).collect()
-                };
-                parts.push(Solid::loft(steps.iter().map(ring).collect()));
-            }
-        }
-        Solid::union(parts)
+        let place = |v: f64, u: f64, z: f64| if axis == Axis::X { [v, u, z] } else { [u, v, z] };
+        let rims = rims(&contours, (lo, hi), faces, r, &place);
+        Solid::union([vec![Solid::prism(axis, profile, lo, hi)], rims].concat())
+    }
+
+    /// [`Solid::through`] a wall that bends: `place` takes a point from how deep into the wall, how
+    /// far across and its z to where it goes, keeping each outline flat at every depth.
+    pub fn bent(contours: &[Contour], (lo, hi): (f64, f64), faces: &[Face], r: f64, place: &Place<'_>) -> Solid {
+        let ring = |t: f64, c: &Contour| c.iter().map(|p| place(t, p[0], p[1])).collect();
+        let body = contours.iter().map(|c| Solid::loft(vec![ring(lo, c), ring(hi, c)])).collect();
+        Solid::union([body, rims(contours, (lo, hi), faces, r, place)].concat())
     }
 
     pub fn union(children: Vec<Solid>) -> Solid {
@@ -206,6 +180,49 @@ impl Solid {
     pub fn profiles(&self, name: &str) -> Vec<Contour> {
         self.prisms(name).into_iter().flat_map(|(.., c)| c.to_vec()).collect()
     }
+}
+
+/// What widens a cut through a wall where it opens through each of `faces` (see [`Solid::through`]).
+fn rims(contours: &[Contour], (lo, hi): (f64, f64), faces: &[Face], r: f64, place: &Place<'_>) -> Vec<Solid> {
+    let mut parts = Vec::new();
+    for (face, behind) in faces {
+        let (r, into) = (r.min(behind.abs() / 2.0), behind.signum());
+        // Into the wall: a quarter circle, which meets the cut's sides along them, not at an
+        // angle a nozzle would slow down for, then on in past them.
+        let steps = [vec![[-2.0 * r, r]], poly::arc([r, r], r, 180.0, 90.0), vec![[1.5 * r, -0.4 * r]]].concat();
+        for c in contours {
+            // Each point moves across the way its corner faces, where the face runs flat, and
+            // as far along as the face lies halfway across that move, where the face slopes.
+            let turn = if Area::area(c.as_slice()) < 0.0 { -1.0 } else { 1.0 };
+            let n = c.len();
+            let across = |a: P2, b: P2| turn * (b[1] - a[1]) / (b[0] - a[0]).hypot(b[1] - a[1]).max(1e-12);
+            let points: Vec<(P2, f64, Option<f64>)> = (0..n)
+                .map(|i| {
+                    let (a, p, b) = (c[(i + n - 1) % n], c[i], c[(i + 1) % n]);
+                    let side = across(a, p) + across(p, b);
+                    let at =
+                        face(p[0] + side.signum() * r / 2.0).filter(|at| side.abs() > 1e-9 && (lo..=hi).contains(at));
+                    (p, side.signum(), at)
+                })
+                .collect();
+            let flat: Vec<f64> = points.iter().filter_map(|q| q.2).collect();
+            if flat.is_empty() {
+                continue;
+            }
+            let middle = flat.iter().sum::<f64>() / flat.len() as f64;
+            let ring = |&[t, w]: &P2| {
+                let point = |&(p, side, at): &(P2, f64, Option<f64>)| {
+                    let (u, at) = (p[0] + at.map_or(0.0, |_| side * w), at.unwrap_or(middle));
+                    // Out of the wall no further than the cut reaches.
+                    let t = t.max(-(if into > 0.0 { at - lo } else { hi - at }));
+                    place(at + into * t, u, p[1])
+                };
+                points.iter().map(point).collect()
+            };
+            parts.push(Solid::loft(steps.iter().map(ring).collect()));
+        }
+    }
+    parts
 }
 
 /// A flat ring's triangles, by index into it, any shape it has. We look at it along the axis it

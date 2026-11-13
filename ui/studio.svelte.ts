@@ -348,7 +348,7 @@ export function describe(issue: Issue): string {
         need[0] > room[0]
           ? `the latch’s tongues need the device’s top and underside to run flat for ${mm(need[0])}, but they do for ${mm(room[0])}`
           : need[1] > room[1]
-            ? `with the latch, the cage and its collar are ${mm(need[1])} tall, but the panel is ${mm(room[1])}`
+            ? `with the latch, the cage and its collar need at least ${mm(need[1])} of height, but the panel has ${mm(room[1])}`
             : `the latch’s tongues reach ${mm(need[2])} behind the panel, but the cage ends ${mm(room[2])} behind it`;
       const fix = need[1] > room[1] ? 'Make the panel taller, or use a smaller hook or less play.' : 'A smaller hook or less play needs less.';
       return `Not latched: ${why}, so the cage only slides into its collar. ${fix}`;

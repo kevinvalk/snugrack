@@ -135,6 +135,9 @@ pub struct Build {
     pub vents: bool,
     /// Air under the device, for vents in its bottom: it rests on ledges along the cage's sides.
     pub air: f64,
+    /// How far from vertical, in degrees, an opening's top may lean where it follows a wall round a
+    /// bend, as the cage prints.
+    pub overhang: f64,
     /// Print each device's share of a row as its own piece, bolted to its neighbors.
     pub split: bool,
 }
@@ -172,6 +175,15 @@ impl Default for Fit {
 
 impl Default for Build {
     fn default() -> Self {
-        Build { plate: 4.0, wall: 1.6, collar_depth: 16.0, back: 5.0, vents: true, air: 2.0, split: true }
+        Build {
+            plate: 4.0,
+            wall: 1.6,
+            collar_depth: 16.0,
+            back: 5.0,
+            vents: true,
+            air: 2.0,
+            overhang: 60.0,
+            split: true,
+        }
     }
 }

@@ -285,6 +285,7 @@
         {@render num('Collar depth', project.build, 'collarDepth', 1, { hint: 'How deep the cage plugs into the faceplate' })}
         {@render num('Cage back', project.build, 'back', 0.5, { hint: 'How deep the cage’s back is: the struts the device’s back rests on, and the walls round them' })}
         {@render toggle('Open cage walls', project.build, 'vents', 'Big openings: less filament, more air')}
+        {@render num('Max overhang', project.build, 'overhang', 5, { suffix: '°', hint: 'How far from vertical an opening’s top may lean where it follows the cage round a bend: 45° prints anywhere, most printers manage 60°' })}
         {@render num('Air under device', project.build, 'air', 0.5, { hint: 'For vents in its bottom: the device rests on ledges along the cage sides; 0 lays it on the floor' })}
       </section>
       <section class={section}>
@@ -293,7 +294,7 @@
         {@render num('Nest', project.fit, 'nest', 0.05, { hint: 'Between the device and the faceplate' })}
         {@render num('Cage', project.fit, 'cage', 0.05, { hint: 'Between the device and the cage' })}
         {@render num('Collar', project.fit, 'collar', 0.05, { hint: 'Between the cage and the collar' })}
-        {@render num('Hook', project.fit, 'hook', 0.1, { hint: 'How far the latch’s nubs reach into the cage’s 1.2 mm tongues; more makes the tongues longer and the cage stand taller where they are, and past 1.2 holds no better' })}
+        {@render num('Hook', project.fit, 'hook', 0.1, { hint: 'How far the latch’s nubs reach into the cage’s tongues, which are as thick as its walls; more makes the tongues longer and the cage stand taller where they are, and past the wall thickness holds no better' })}
         {@render num('Latch play', project.fit, 'play', 0.05, { hint: 'Front-to-back play once latched' })}
       </section>
     {/if}
