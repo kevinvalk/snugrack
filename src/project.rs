@@ -171,7 +171,8 @@ pub struct Build {
     pub overhang: f64,
     /// Print each device's share of a row as its own piece, bolted to its neighbors.
     pub split: bool,
-    /// Round every edge a layer has a corner at (see [`crate::round`]); without, the parts as built, every edge sharp.
+    /// Round the corners the openings, slits and latch holes leave where they cut through a wall; without, they stay
+    /// sharp, easier to see what made what.
     pub round: bool,
 }
 

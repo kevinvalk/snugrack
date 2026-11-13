@@ -329,7 +329,7 @@ test('a power supply behind a blank faceplate', { timeout: 120_000 }, async () =
   await page.close();
 });
 
-test('edges round after the fact, and can stay sharp', { timeout: 120_000 }, async () => {
+test('cuts round the corners they leave, and can leave them sharp', { timeout: 120_000 }, async () => {
   const page = await open();
   await addBox(page, 0);
   const cage = async () => inspect(await download(page, /· Cage/));
@@ -337,7 +337,7 @@ test('edges round after the fact, and can stay sharp', { timeout: 120_000 }, asy
   await page.getByRole('navigation').getByRole('button', { name: /^Rack/ }).click();
   await designed(page, () => page.getByLabel('Round edges').uncheck());
   const sharp = await cage();
-  // Rounding only takes material off the corners that stand out, and takes off most of what's sharp.
+  // Rounding takes material off the corners the cuts leave, and most of what's sharp.
   assert.ok(round.leaks === 0 && sharp.leaks === 0);
   assert.ok(round.grams < sharp.grams, `${round.grams} g rounded, ${sharp.grams} g sharp`);
   assert.ok(round.sharp < sharp.sharp / 2, `${round.sharp.toFixed(0)} mm sharp rounded, ${sharp.sharp.toFixed(0)} mm without`);

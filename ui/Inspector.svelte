@@ -342,7 +342,7 @@
         {@render num('Collar depth', project.build, 'collarDepth', 1, { hint: 'How deep the cage plugs into the faceplate' })}
         {@render num('Cage back', project.build, 'back', 0.5, { hint: 'How deep the cage’s back is: the struts the device’s back rests on, and the walls round them' })}
         {@render toggle('Open cage walls', project.build, 'vents', 'Big openings: less filament, more air')}
-        {@render toggle('Round edges', project.build, 'round', 'Round every corner a layer has, as printed, by 0.5 mm. Off, the parts as built, every edge sharp: easier to see what made what')}
+        {@render toggle('Round edges', project.build, 'round', 'Round the corners the openings, slits and latch holes leave in the walls. Off, they stay sharp: easier to see what made what')}
         {@render num('Max overhang', project.build, 'overhang', 5, { suffix: '°', hint: 'How far from vertical an opening’s top may lean where it follows the cage round a bend: 45° prints anywhere, most printers manage 60°' })}
         {@render num('Air under device', project.build, 'air', 0.5, { hint: 'For vents in its bottom: the device rests on ledges along the cage sides; 0 lays it on the floor' })}
       </section>

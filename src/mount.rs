@@ -10,7 +10,7 @@
 use glam::{DVec2, DVec3};
 use i_overlay::i_shape::float::area::Area;
 
-use crate::csg::Solid;
+use crate::csg::{Face, Solid};
 use crate::mesh::{Tri, bounds};
 use crate::poly::{self, Contour, P2, Shapes};
 use crate::project::{Build, Fit, Project};
@@ -64,6 +64,8 @@ const BRIDGE: f64 = 30.0;
 /// Corners in the layer plane, which every part prints in, are rounded this much where there's room,
 /// so the nozzle needn't stop dead at them.
 pub(crate) const ROUND: f64 = 1.0;
+/// Where a millimeter doesn't fit: round the latch's slits and holes.
+const SNUG: f64 = 0.5;
 /// The collar's top and bottom are as thick as the walls where the panel leaves room, and no thinner
 /// than this with the latch, whose nubs they hold.
 const COLLAR: f64 = 1.0;
@@ -267,7 +269,17 @@ impl DeviceFit {
             .map(|(z, s)| (z, poly::translate(s, x, shift.y)))
             .collect();
 
+        // The cavity's ceiling or floor at each x, where it runs flat enough for the cuts' rounding.
         let cavity = poly::translate(&self.cavity, x, shift.y);
+        let face = |top: bool| {
+            let cavity = &cavity;
+            move |at: f64| {
+                let hits = poly::crossings(cavity, 1, at).into_iter();
+                let hit =
+                    if top { hits.max_by(|a, b| a.0.total_cmp(&b.0)) } else { hits.min_by(|a, b| a.0.total_cmp(&b.0)) };
+                hit.filter(|(_, slope)| slope.abs() < 0.25).map(|(at, _)| at)
+            }
+        };
 
         // The latch, in each wall: `s` points out of the cage, `d` from a tongue's free end to its
         // root. The tongue's free end reaches REACH past the collar, and its back edge runs from
@@ -277,7 +289,8 @@ impl DeviceFit {
         // under a ledge, a pad stands proud of it, which the collar follows, and which steps back
         // to the wall at 45 degrees behind the latch. The pocket behind the tongue opens into the
         // cavity, with a 45-degree root, which a sharp corner would crack at. The cuts reach past
-        // the device's face, into the cavity, however the wall runs over them.
+        // the device's face, into the cavity, however the wall runs over them, and round the
+        // corners they leave.
         let z_collar = -t - b.collar_depth;
         let (z_free, z_front) = (z_collar - REACH, -t + 1.0);
         // The nub stands EDGE ahead of the collar's back end, unless that's too close to the plate.
@@ -312,7 +325,6 @@ impl DeviceFit {
                     // Past the slit it's as wide as the wall, and meets the wall where that runs up from
                     // the flat stretch square, as the collar follows it.
                     let base = out - s * k;
-                    // Round towards the middle, which the collar follows too.
                     let ends = if d > 0.0 { [(0.0, 0.0), (ROUND, ROUND)] } else { [(ROUND, ROUND), (0.0, 0.0)] };
                     let pad = bump(p0, p1, base, s, k, ends);
                     outline =
@@ -321,13 +333,23 @@ impl DeviceFit {
                     shell.push(rise(&pad, base, s, &tips).labeled("latch pad"));
                 }
                 behind[w] = behind[w].min(z_pad - k - RAIL);
-                // Up, and along the back edge, flat at its ends.
+                // Up, and along the back edge, flat at its ends. Inside, it opens through the tongue and
+                // the pocket behind it, or beside them through the wall, wherever that runs flat.
                 let under = out - s * wall;
                 let depth = s * (under - inside);
+                let floor_or_ceiling = face(s > 0.0);
+                let (past_free, past_root) = (|u: f64| (u - free) * d, |u: f64| (u - root) * d);
+                let tongue = |u: f64| (past_free(u) > -SLIT / 2.0 && past_root(u) < 0.0).then_some(under);
+                let beside = |u: f64| if past_free(u) < -SLIT / 2.0 { floor_or_ceiling(u) } else { None };
+                let at_out = |_: f64| Some(out);
+                let faces: [Face; 3] = [(&tongue, out - under), (&beside, out - under), (&at_out, under - out)];
                 let (a, b) = (free - d * SLIT, half - d * SLIT);
                 let slit =
                     vec![[a, z_front], [a, z_free], [b, z_root], [half, z_root], [free, z_free], [free, z_front]];
-                cut.push(Solid::through(vec![slit], through).labeled("tongue slits"));
+                cut.push(
+                    Solid::through(vec![slit], through, if self.build.round { &faces } else { &[] }, SNUG)
+                        .labeled("tongue slits"),
+                );
                 // Its root runs on along the wall's face, just inside the cavity, to round the corner it
                 // makes there.
                 let mut pocket = vec![
@@ -347,7 +369,7 @@ impl DeviceFit {
                 // to its tip, then down the ramp. Its fillets stay out of the hole: `g` from the nub,
                 // where the hole ends, they're less than `g` high.
                 let foot = out + s * g;
-                let nub = bump(n0, n1, foot, -s, proud, [(0.0, g / (1.0 - std::f64::consts::FRAC_1_SQRT_2)); 2]);
+                let nub = bump(n0, n1, foot, -s, proud, [(ROUND, g / (1.0 - std::f64::consts::FRAC_1_SQRT_2)); 2]);
                 let tips =
                     [(z_catch, 0.0), (z_catch - CATCH * proud, proud), (z_catch - CATCH * proud - RAMP * proud, 0.0)];
                 collar.push(rise(&nub, foot, -s, &tips).labeled("latch nub"));
@@ -355,7 +377,12 @@ impl DeviceFit {
                 // and by the collar's gap either side. From the cage's back its top is a short bridge.
                 let (zb, zf) = (z_catch - CATCH * proud - RAMP * fit.hook - fit.play, z_catch - CATCH * g + fit.play);
                 let hole = vec![[n0 - g, zb], [n1 + g, zb], [n1 + g, zf], [n0 - g, zf]];
-                cut.push(Solid::through(vec![hole], through).labeled("latch hole"));
+                let at_under = |_: f64| Some(under);
+                let tongue: [Face; 2] = [(&at_under, out - under), (&at_out, under - out)];
+                cut.push(
+                    Solid::through(vec![hole], through, if self.build.round { &tongue } else { &[] }, SNUG)
+                        .labeled("latch hole"),
+                );
             }
         }
 
@@ -468,7 +495,7 @@ impl DeviceFit {
                     };
                     if !shapes.is_empty() {
                         let vent = Vent { name, corners: corners.clone(), bridge, openings: shapes };
-                        cut.push(vent.cut(wall).labeled(name));
+                        cut.push(vent.cut(wall, b.round).labeled(name));
                         vents.push(vent);
                     }
                 }
@@ -490,7 +517,13 @@ impl DeviceFit {
             for pair in spans.windows(2) {
                 let [(_, hi), (next_lo, _)] = pair else { unreachable!() };
                 let (mid, half) = (across((hi[0] + next_lo[0]) / 2.0), RIDGE / 2.0 + ROUND);
-                let rib = poly::rounded_rect(mid - RIDGE / 2.0, ilo - EPS, mid + RIDGE / 2.0, ilo + ridge, 0.0);
+                let rib = poly::rounded_rect(
+                    mid - RIDGE / 2.0,
+                    ilo - EPS,
+                    mid + RIDGE / 2.0,
+                    ilo + ridge,
+                    ROUND.min(ridge / 2.0),
+                );
                 // The fillets end on the floor's face, along a line: none of their faces lies on it.
                 let foot = poly::rect(mid - half - ROUND, ilo - EPS, mid + half + ROUND, ilo);
                 let rib = poly::closed(&poly::union(&vec![vec![rib]], &foot), ROUND);
@@ -545,7 +578,7 @@ impl Vent {
     /// The openings cut through a wall `wall` thick, each in one piece round the wall's corners:
     /// square through each straight stretch, mitred where two meet, which both put a point the same
     /// depth into the wall at the same place.
-    fn cut(&self, wall: f64) -> Solid {
+    fn cut(&self, wall: f64, round: bool) -> Solid {
         let (s, at) = (|i: usize| self.corners[i].0, |i: usize| DVec2::from(self.corners[i].1));
         let m = self.corners.len() - 1;
         let place = |t: f64, u: f64, z: f64| {
@@ -575,7 +608,10 @@ impl Vent {
                     .collect()
             })
             .collect();
-        Solid::bent(&contours, (-1.0, wall + 1.0), &place, &(1..m).map(s).collect::<Vec<_>>())
+        let (inside, outside) = (|_: f64| Some(0.0), |_: f64| Some(wall));
+        let faces: [Face; 2] = [(&inside, wall), (&outside, -wall)];
+        let faces: &[Face] = if round { &faces } else { &[] };
+        Solid::bent(&contours, (-1.0, wall + 1.0), faces, ROUND, &place, &(1..m).map(s).collect::<Vec<_>>())
     }
 
     /// Which way, per millimeter into the wall, the cuts square to the stretches either side of corner
@@ -695,7 +731,8 @@ fn cavity(profile: &Profile, p: &Project, rear: f64) -> (Shapes, Shapes, Vec<Gus
         let channel = vec![[x0 + air, floor], [x1 - air, floor], [x1, lo[1]], [x1, mid], [x0, mid], [x0, lo[1]]];
         outline = poly::union(&outline, &poly::rounded(&vec![vec![channel]], ROUND));
     }
-    let outline = poly::tidy(&outline);
+    // Its inside corners rounded too, the only way that leaves the device all its room: by growing.
+    let outline = poly::tidy(&poly::closed(&outline, ROUND));
     // Struts evenly across the width, in the middle of equal shares of it, from floor to ceiling,
     // meeting both in fillets FILLET big. Where a port or plug stands out behind the device, a strut
     // moves aside, a millimeter at a time and at most a quarter of its share, to where it's least in the
@@ -740,7 +777,7 @@ fn cavity(profile: &Profile, p: &Project, rear: f64) -> (Shapes, Shapes, Vec<Gus
                     h = h.min(room(k) + (k - 1) as f64);
                 }
                 if h >= 0.5 {
-                    gussets.push((bump(a, b, face, s, h, [(0.0, FILLET); 2]), face, s, h));
+                    gussets.push((bump(a, b, face, s, h, [(ROUND, FILLET); 2]), face, s, h));
                 }
             }
         }
@@ -988,6 +1025,33 @@ mod tests {
         }
     }
 
+    /// The latch's pads are round where they stand out of the cage, but for their ends past the slits,
+    /// which meet the wall square.
+    #[test]
+    fn the_pads_are_round() {
+        let p = Project::default();
+        let m = crate::Device::boxed([150.0, 30.0, 100.0]).fit(&p, None).unwrap().module(0.0, (-30.0, 30.0));
+        let pads = meshes(&m.cage, "latch pad");
+        assert_eq!(pads.len(), 4);
+        for pad in pads {
+            // The first ring, at the plate, and how far out it stands.
+            let z = pad[0][2];
+            let ring: Contour = pad.iter().take_while(|v| v[2] == z).map(|v| [v[0], v[1]]).collect();
+            let s = if ring[0][1] > m.shift.y { 1.0 } else { -1.0 };
+            let out = ring.iter().map(|q| s * q[1]).fold(f64::NEG_INFINITY, f64::max);
+            let end = ring.iter().map(|q| q[0].abs()).fold(0.0, f64::max);
+            let sharp = poly::sharp_corners(std::slice::from_ref(&ring));
+            let round = sharp.iter().filter(|q| end - q[0].abs() > 0.1);
+            assert!(
+                round.clone().all(|q| out - s * q[1] > SNUG),
+                "{:?} on a pad out to {}",
+                round.collect::<Vec<_>>(),
+                s * out
+            );
+        }
+    }
+
+    /// Where the pads stand out of the cage, the collar's inside follows them in fillets, and is
     /// round all along but where it follows their square ends past the slits.
     #[test]
     fn the_collar_is_round_inside_and_out() {
@@ -1193,6 +1257,25 @@ mod tests {
             assert!((z_free - deepest[0] - half).abs() < 1e-6, "{slit:?}: {half} deep");
             assert!(((deepest[1] - free).abs() - half).abs() <= SLIT + 1e-6, "{slit:?}: {half} along");
         }
+    }
+
+    /// Without Round edges, the cuts through the walls are plain: no rims rounding the corners they leave.
+    #[test]
+    fn round_edges_off_leaves_the_cuts_plain() {
+        let mut p = Project::default();
+        let fit =
+            |p: &Project| crate::Device::boxed([150.0, 26.0, 100.0]).fit(p, None).unwrap().module(0.0, (-21.8, 21.8));
+        let meshes = |m: &Module| {
+            ["tongue slits", "latch hole", "top openings"]
+                .map(|n| m.cage.find(n).iter().filter(|s| matches!(s, Solid::Mesh { .. })).count())
+        };
+        assert!(meshes(&fit(&p)).iter().all(|&n| n > 0));
+        p.build.round = false;
+        // The openings are bent lofts, meshes either way: one per opening, and no more.
+        let m = fit(&p);
+        let [slits, holes, openings] = meshes(&m);
+        assert_eq!((slits, holes), (0, 0));
+        assert_eq!(openings, vents(&m, "top openings").map(|v| v.openings.len()).sum::<usize>());
     }
 
     /// Each tongue sits at an end of its wall, as far out as the device's top or underside runs flat,
