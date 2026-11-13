@@ -1,0 +1,35 @@
+{
+  "name": "rackraft",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "wasm": "wasm-pack build --target web --out-dir ui/wasm --no-pack --release",
+    "dev": "npm run wasm && vite",
+    "build": "npm run wasm && vite build",
+    "check": "npm run wasm && svelte-check",
+    "e2e": "npm run build && node --test --experimental-strip-types --no-warnings e2e.test.ts ui/viewport/measure.test.ts"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.72.0",
+    "fflate": "^0.8.3",
+    "idb-keyval": "^6.3.0",
+    "manifold-3d": "^3.5.5",
+    "svelte": "^5.57.3",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "modern-screenshot": "^4.7.0",
+    "playwright": "^1.65.0",
+    "svelte-check": "^4.7.8",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "zod": "^4.6.7"
+  }
+}

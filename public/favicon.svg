@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<rect width="64" height="64" rx="13" fill="#101A28"/>
+<g transform="translate(3.5 4) scale(.87)">
+<title>Rackraft mark</title>
+<path d="M18 7H39C50.6 7 58 14.1 58 25.7C58 34 53.7 40 46 42.5L59 57H41.6L29.6 43H20V31H38.8C43.7 31 46.1 29 46.1 25.3C46.1 21.4 43.5 19.6 38.8 19.6H18V7Z" fill="#F1F6FF"/>
+<path d="M6 9C6 7.9 6.9 7 8 7H19.5V57H8C6.9 57 6 56.1 6 55V9Z" fill="#2C7BFA"/>
+<circle cx="12.75" cy="18.2" r="2.65" fill="white"/>
+<circle cx="12.75" cy="45.8" r="2.65" fill="white"/>
+</g></svg>

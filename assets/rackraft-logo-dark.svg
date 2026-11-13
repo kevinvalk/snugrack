@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="224" viewBox="0 0 800 224" role="img" aria-labelledby="title" class="dark">
+<title id="title">Rackraft logo</title>
+<defs>
+  <linearGradient id="rr-metal" gradientUnits="userSpaceOnUse" x1="104" y1="24" x2="194" y2="195"><stop offset="0" stop-color="#344A60"/><stop offset=".43" stop-color="#1E3044"/><stop offset="1" stop-color="#0E1A29"/></linearGradient>
+  <linearGradient id="rr-top" gradientUnits="userSpaceOnUse" x1="94" y1="15" x2="188" y2="87"><stop offset="0" stop-color="#48617B"/><stop offset=".55" stop-color="#344A60"/><stop offset="1" stop-color="#1E3044"/></linearGradient>
+  <linearGradient id="rr-fold" gradientUnits="userSpaceOnUse" x1="151" y1="93" x2="206" y2="153"><stop offset="0" stop-color="#233B53"/><stop offset="1" stop-color="#0E1A29"/></linearGradient>
+  <linearGradient id="rr-leg" gradientUnits="userSpaceOnUse" x1="121" y1="118" x2="194" y2="198"><stop offset="0" stop-color="#344A60"/><stop offset=".7" stop-color="#1E3044"/><stop offset="1" stop-color="#0E1A29"/></linearGradient>
+  <linearGradient id="rr-metal-dark" gradientUnits="userSpaceOnUse" x1="104" y1="24" x2="194" y2="195"><stop offset="0" stop-color="#627F99"/><stop offset=".43" stop-color="#3C556C"/><stop offset="1" stop-color="#283E54"/></linearGradient>
+  <linearGradient id="rr-top-dark" gradientUnits="userSpaceOnUse" x1="94" y1="15" x2="188" y2="87"><stop offset="0" stop-color="#91A7BC"/><stop offset=".55" stop-color="#607C95"/><stop offset="1" stop-color="#3C556C"/></linearGradient>
+  <linearGradient id="rr-fold-dark" gradientUnits="userSpaceOnUse" x1="151" y1="93" x2="206" y2="153"><stop offset="0" stop-color="#506C86"/><stop offset="1" stop-color="#283E54"/></linearGradient>
+  <linearGradient id="rr-leg-dark" gradientUnits="userSpaceOnUse" x1="121" y1="118" x2="194" y2="198"><stop offset="0" stop-color="#627E98"/><stop offset=".7" stop-color="#3D556A"/><stop offset="1" stop-color="#2A4056"/></linearGradient>
+  <linearGradient id="rr-rail" gradientUnits="userSpaceOnUse" x1="18" y1="53" x2="85" y2="213"><stop offset="0" stop-color="#49A9FF"/><stop offset=".38" stop-color="#2585FF"/><stop offset="1" stop-color="#0870F9"/></linearGradient>
+</defs>
+<style>
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light):not(.dark) .rr-core { fill: #3C556C; }
+    :root:not(.light):not(.dark) .rr-body-shade { fill: url(#rr-metal-dark); }
+    :root:not(.light):not(.dark) .rr-top-shade { fill: url(#rr-top-dark); }
+    :root:not(.light):not(.dark) .rr-fold-shade { fill: url(#rr-fold-dark); }
+    :root:not(.light):not(.dark) .rr-leg-shade { fill: url(#rr-leg-dark); }
+    :root:not(.light):not(.dark) .rr-wordmark { fill: #F4F7FB; }
+  }
+  :root.dark .rr-core { fill: #3C556C; }
+  :root.dark .rr-body-shade { fill: url(#rr-metal-dark); }
+  :root.dark .rr-top-shade { fill: url(#rr-top-dark); }
+  :root.dark .rr-fold-shade { fill: url(#rr-fold-dark); }
+  :root.dark .rr-leg-shade { fill: url(#rr-leg-dark); }
+  :root.dark .rr-wordmark { fill: #F4F7FB; }
+  /* With an external SVG image, media dimensions use the image viewport. */
+  @media (max-height: 31px) {
+    .rr-shading { display: none; }
+    .rr-rail { fill: #1678F9; }
+  }
+</style>
+<g id="rackraft-mark">
+  <path class="rr-core" d="M70 37 L108 15 L200 68 L200 118 Q200 121 197 123 L164 147 L208 172 Q211 174 207 177 L184 190 Q181 192 178 190 L112 152 Q109 149 109 145 L109 122 Q109 119 112 117 L162 88 L70 37 Z" fill="#1E3044"/>
+  <g class="rr-shading">
+    <path class="rr-body-shade" d="M70 37 L108 15 L200 68 L200 118 Q200 121 197 123 L164 147 L208 172 Q211 174 207 177 L184 190 Q181 192 178 190 L112 152 Q109 149 109 145 L109 122 Q109 119 112 117 L162 88 L70 37 Z" fill="url(#rr-metal)"/>
+    <path class="rr-top-shade" d="M70 37 L108 15 L200 68 L162 90 Z" fill="url(#rr-top)"/>
+    <path class="rr-fold-shade" d="M162 90 L200 68 L200 118 Q200 121 197 123 L164 147 L112 117 L162 88 Z" fill="url(#rr-fold)" opacity=".72"/>
+    <path class="rr-leg-shade" d="M112 117 L164 147 L208 172 Q211 174 207 177 L184 190 Q181 192 178 190 L112 152 Q109 149 109 145 Z" fill="url(#rr-leg)" opacity=".83"/>
+    <path d="M70 37 L108 15 L200 68" fill="none" stroke="#6383A3" stroke-width="1.4" stroke-opacity=".48"/>
+  </g>
+  <path class="rr-rail" d="M18 53 L85 92 L85 213 L18 174 Z M39 75 L60 87 L60 105 L39 93 Z M39 111 L60 123 L60 141 L39 129 Z M39 147 L60 159 L60 177 L39 165 Z" fill="url(#rr-rail)" fill-rule="evenodd"/>
+  <path class="rr-shading" d="M18 53 L85 92" fill="none" stroke="#83D2FF" stroke-width="1.6" opacity=".9"/>
+</g><g id="rackraft-wordmark" class="rr-wordmark" fill="#142235" transform="translate(249 162)"><g transform="translate(0 0) scale(0.0634766 -0.0634766)"><path d="M124 0H388V542H688C691 542 693 542 695 542L975 0H1266L955 590C1132 662 1238 811 1238 1014C1238 1306 1033 1490 705 1490H124ZM388 760V1266H690C868 1266 978 1169 978 1014C978 858 868 760 692 760Z" transform="translate(0.000 0)"/><path d="M434 -17C606 -17 695 55 745 149H749V0H997V720C997 940 834 1077 559 1077C283 1077 111 938 99 728H342C349 817 431 881 554 881C675 881 747 817 747 727V719C747 647 680 644 484 622C266 599 69 540 69 300C69 89 224 -17 434 -17ZM496 170C386 170 315 219 315 302C315 398 407 437 515 453C619 469 717 485 748 505V391C748 268 661 170 496 170Z" transform="translate(1300.568 0)"/><path d="M579 -24C846 -24 1040 148 1058 379H809C785 262 714 186 582 186C416 186 318 319 318 527C318 736 417 870 582 870C713 870 792 791 811 678H1058C1036 913 844 1080 579 1080C270 1080 63 853 63 527C63 201 270 -24 579 -24Z" transform="translate(2390.136 0)"/><path d="M112 0H364V353L460 452L806 0H1107L652 600L1081 1056H778L367 628H364V1490H112Z" transform="translate(3486.704 0)"/><path d="M112 0H364V598C364 763 457 846 577 846C627 846 677 841 696 838V1062C676 1064 648 1066 614 1066C478 1066 397 1002 358 881H355V1056H112Z" transform="translate(4566.272 0)"/><path d="M434 -17C606 -17 695 55 745 149H749V0H997V720C997 940 834 1077 559 1077C283 1077 111 938 99 728H342C349 817 431 881 554 881C675 881 747 817 747 727V719C747 647 680 644 484 622C266 599 69 540 69 300C69 89 224 -17 434 -17ZM496 170C386 170 315 219 315 302C315 398 407 437 515 453C619 469 717 485 748 505V391C748 268 661 170 496 170Z" transform="translate(5276.840 0)"/><path d="M675 1056H460V1168C460 1254 492 1287 578 1287H675V1490H528C319 1490 207 1392 207 1210V1056H17V853H207V0H460V853H675Z" transform="translate(6366.408 0)"/><path d="M669 1056H454V1344H201V1056H17V853H201V266C201 85 302 0 517 0H669V203H561C479 203 454 228 454 303V853H669Z" transform="translate(7062.976 0)"/></g></g>
+</svg>
