@@ -80,6 +80,13 @@ impl Solid {
     /// to the same one on the next ring: slopes whose outlines keep their rounded corners, or a
     /// device built from its outlines.
     pub fn loft(rings: Vec<Vec<[f64; 3]>>) -> Solid {
+        let flat = flatten(&rings[0]);
+        Solid::lofted(rings, &flat, &[])
+    }
+
+    /// A [`Solid::loft`] through rings that bend, each closed by the triangles of `flat`, the
+    /// outline it was bent from, with `bends` (pairs of its points, by index) joined straight.
+    fn lofted(rings: Vec<Vec<[f64; 3]>>, flat: &[P2], bends: &[(usize, usize)]) -> Solid {
         let (n, last) = (rings[0].len(), rings.len() - 1);
         assert!(rings.iter().all(|r| r.len() == n), "a loft's rings have different numbers of points");
         let at = |r: usize, i: usize| (r * n + i % n) as u32;
@@ -90,7 +97,7 @@ impl Solid {
                 triangles.extend([[a, b, d], [a, d, c]]);
             }
         }
-        for [a, b, c] in cap(&rings[0]) {
+        for [a, b, c] in cap(flat, bends) {
             triangles.extend([[at(0, a), at(0, c), at(0, b)], [at(last, a), at(last, b), at(last, c)]]);
         }
         let vertices: Vec<[f64; 3]> = rings.into_iter().flatten().collect();
@@ -111,16 +118,25 @@ impl Solid {
     pub fn through(contours: Vec<Contour>, (lo, hi): (f64, f64), faces: &[Face], r: f64) -> Solid {
         // Along y a prism's profile is (z, x).
         let profile = contours.iter().map(|c| c.iter().map(|p| [p[1], p[0]]).collect()).collect();
-        let rims = rims(&contours, (lo, hi), faces, r, &|y, x, z| [x, y, z]);
+        let rims = rims(&contours, (lo, hi), faces, r, &|y, x, z| [x, y, z], &[]);
         Solid::union([vec![Solid::prism(Axis::Y, profile, lo, hi)], rims].concat())
     }
 
-    /// [`Solid::through`] a wall that bends: `place` takes a point from how deep into the wall, how
-    /// far across and its z to where it goes, keeping each outline flat at every depth.
-    pub fn bent(contours: &[Contour], (lo, hi): (f64, f64), faces: &[Face], r: f64, place: &Place<'_>) -> Solid {
+    /// [`Solid::through`] a wall that bends at `bends` across, where the outlines have points:
+    /// `place` takes a point from how deep into the wall, how far across and its z to where it goes.
+    /// Its ends close straight between the bends, so they never cut a corner short.
+    pub fn bent(
+        contours: &[Contour],
+        (lo, hi): (f64, f64),
+        faces: &[Face],
+        r: f64,
+        place: &Place<'_>,
+        bends: &[f64],
+    ) -> Solid {
         let ring = |t: f64, c: &Contour| c.iter().map(|p| place(t, p[0], p[1])).collect();
-        let body = contours.iter().map(|c| Solid::loft(vec![ring(lo, c), ring(hi, c)])).collect();
-        Solid::union([body, rims(contours, (lo, hi), faces, r, place)].concat())
+        let body =
+            contours.iter().map(|c| Solid::lofted(vec![ring(lo, c), ring(hi, c)], c, &joins(c, bends))).collect();
+        Solid::union([body, rims(contours, (lo, hi), faces, r, place, bends)].concat())
     }
 
     pub fn union(children: Vec<Solid>) -> Solid {
@@ -181,7 +197,14 @@ impl Solid {
 }
 
 /// What widens a cut through a wall where it opens through each of `faces` (see [`Solid::through`]).
-fn rims(contours: &[Contour], (lo, hi): (f64, f64), faces: &[Face], r: f64, place: &Place<'_>) -> Vec<Solid> {
+fn rims(
+    contours: &[Contour],
+    (lo, hi): (f64, f64),
+    faces: &[Face],
+    r: f64,
+    place: &Place<'_>,
+    bends: &[f64],
+) -> Vec<Solid> {
     let mut parts = Vec::new();
     for (face, behind) in faces {
         let (r, into) = (r.min(behind.abs() / 2.0), behind.signum());
@@ -208,47 +231,76 @@ fn rims(contours: &[Contour], (lo, hi): (f64, f64), faces: &[Face], r: f64, plac
                 continue;
             }
             let middle = flat.iter().sum::<f64>() / flat.len() as f64;
+            let across = |&(p, side, at): &(P2, f64, Option<f64>), w: f64| p[0] + at.map_or(0.0, |_| side * w);
             let ring = |&[t, w]: &P2| {
-                let point = |&(p, side, at): &(P2, f64, Option<f64>)| {
-                    let (u, at) = (p[0] + at.map_or(0.0, |_| side * w), at.unwrap_or(middle));
+                let point = |q: &(P2, f64, Option<f64>)| {
+                    let at = q.2.unwrap_or(middle);
                     // Out of the wall no further than the cut reaches.
                     let t = t.max(-(if into > 0.0 { at - lo } else { hi - at }));
-                    place(at + into * t, u, p[1])
+                    place(at + into * t, across(q, w), q.0[1])
                 };
                 points.iter().map(point).collect()
             };
-            parts.push(Solid::loft(steps.iter().map(ring).collect()));
+            let flat: Vec<P2> = points.iter().map(|q| [across(q, steps[0][1]), q.0[1]]).collect();
+            parts.push(Solid::lofted(steps.iter().map(ring).collect(), &flat, &joins(c, bends)));
         }
     }
     parts
 }
 
-/// A flat ring's triangles, by index into it, any shape it has. We look at it along the axis it
-/// faces most.
-fn cap(ring: &[[f64; 3]]) -> Vec<[usize; 3]> {
+/// A flat ring as seen along the axis it faces most.
+fn flatten(ring: &[[f64; 3]]) -> Vec<P2> {
     let normal = (0..ring.len()).fold(glam::DVec3::ZERO, |n, i| {
         n + glam::DVec3::from(ring[i]).cross(glam::DVec3::from(ring[(i + 1) % ring.len()]))
     });
     let axis = normal.abs().max_position();
-    let flat: Vec<P2> = ring.iter().map(|p| [p[(axis + 1) % 3], p[(axis + 2) % 3]]).collect();
+    ring.iter().map(|p| [p[(axis + 1) % 3], p[(axis + 2) % 3]]).collect()
+}
+
+/// Where an outline crosses each of `bends` across, its points there in pairs, bottom up: what lies
+/// between each pair is inside it, so its caps join them straight.
+fn joins(c: &Contour, bends: &[f64]) -> Vec<(usize, usize)> {
+    bends
+        .iter()
+        .flat_map(|&u| {
+            let mut on: Vec<usize> = (0..c.len()).filter(|&i| (c[i][0] - u).abs() < 1e-9).collect();
+            on.sort_by(|&a, &b| c[a][1].total_cmp(&c[b][1]));
+            // Where it only touches the bend, there's nothing to join.
+            if on.len() % 2 == 1 { Vec::new() } else { on.chunks(2).map(|p| (p[0], p[1])).collect() }
+        })
+        .collect()
+}
+
+/// A flat outline's triangles, by index into it, any shape it has, with `joins` as edges.
+fn cap(flat: &[P2], joins: &[(usize, usize)]) -> Vec<[usize; 3]> {
     let mut cdt = ConstrainedDelaunayTriangulation::<Point2<f64>>::new();
     let handles: Vec<_> = flat.iter().filter_map(|p| cdt.insert(Point2::new(p[0], p[1])).ok()).collect();
     for i in 0..handles.len() {
         cdt.add_constraint(handles[i], handles[(i + 1) % handles.len()]);
     }
-    let winding = Area::area(flat.as_slice()).signum();
+    for &(a, b) in joins {
+        cdt.try_add_constraint(handles[a], handles[b]);
+    }
+    // Inside is what can't be reached from outside without crossing its outline. A point between two
+    // on a straight edge makes a triangle of no area there, which a test of where it lies could put
+    // either side; spade's own order of each triangle's corners turns its way all the same.
+    let mut outside = std::collections::HashSet::new();
+    let mut todo: Vec<_> = cdt
+        .convex_hull()
+        .filter(|e| !e.is_constraint_edge())
+        .filter_map(|e| e.face().as_inner().or(e.rev().face().as_inner()))
+        .collect();
+    while let Some(f) = todo.pop() {
+        if outside.insert(f.fix()) {
+            let across = f.adjacent_edges().into_iter().filter(|e| !e.is_constraint_edge());
+            todo.extend(across.filter_map(|e| e.rev().face().as_inner()));
+        }
+    }
+    let winding = Area::area(flat).signum();
     cdt.inner_faces()
+        .filter(|f| !outside.contains(&f.fix()))
         .map(|f| f.vertices().map(|v| v.fix().index()))
-        .filter(|&[a, b, c]| {
-            // Inside the ring, and turning its way.
-            let [p, q, r] = [a, b, c].map(|i| flat[i]);
-            poly::inside(std::slice::from_ref(&flat), [(p[0] + q[0] + r[0]) / 3.0, (p[1] + q[1] + r[1]) / 3.0])
-        })
-        .map(|[a, b, c]| {
-            let [p, q, r] = [a, b, c].map(|i| flat[i]);
-            let turn = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
-            if turn * winding < 0.0 { [a, c, b] } else { [a, b, c] }
-        })
+        .map(|[a, b, c]| if winding < 0.0 { [a, c, b] } else { [a, b, c] })
         .collect()
 }
 

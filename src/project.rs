@@ -1,6 +1,8 @@
 //! What the user designs: a rack of rows, each holding devices side by side, or one device with its own rack
 //! ears. Millimeters throughout.
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
@@ -17,6 +19,10 @@ pub struct Project {
     pub build: Build,
     /// Round holes for cables, straight through the faceplate, each with the device it's for.
     pub holes: Vec<Hole>,
+    /// Devices behind a blank faceplate, such as power supplies, whose cables come out of their front.
+    pub blanks: Vec<Blank>,
+    /// Devices' own settings, over the project's.
+    pub overrides: Vec<Override>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Tsify)]
@@ -84,6 +90,30 @@ pub struct Hole {
     pub diameter: f64,
 }
 
+/// A device behind a blank faceplate, set back past the collar and its band by `room`, where its front cables bend
+/// out through the cage's openings, and its spare cable goes. Pillars on the faceplate's back hold it there.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct Blank {
+    /// The device's model, by id.
+    pub model: String,
+    pub room: f64,
+}
+
+/// A device's own settings, for those that suit one device and not the next: each it has is used
+/// instead of the project's. Those of the panel, which its devices share, it can't have.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct Override {
+    /// The device's model, by id.
+    pub model: String,
+    /// As [`Build`]'s, and [`Fit::cage`].
+    pub air: Option<f64>,
+    pub wall: Option<f64>,
+    pub vents: Option<bool>,
+    pub cage: Option<f64>,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub enum Align {
@@ -143,6 +173,26 @@ pub struct Build {
     pub split: bool,
 }
 
+impl Project {
+    /// The project as the device of model `id` sees it: its own build settings over the project's.
+    pub fn own(&self, id: &str) -> Cow<'_, Project> {
+        match self.overrides.iter().find(|o| o.model == id) {
+            Some(o) => {
+                let b = self.build;
+                let build = Build {
+                    air: o.air.unwrap_or(b.air),
+                    wall: o.wall.unwrap_or(b.wall),
+                    vents: o.vents.unwrap_or(b.vents),
+                    ..b
+                };
+                let fit = Fit { cage: o.cage.unwrap_or(self.fit.cage), ..self.fit };
+                Cow::Owned(Project { build, fit, ..self.clone() })
+            }
+            None => Cow::Borrowed(self),
+        }
+    }
+}
+
 impl Default for Project {
     fn default() -> Self {
         Project {
@@ -151,6 +201,8 @@ impl Default for Project {
             fit: Fit::default(),
             build: Build::default(),
             holes: Vec::new(),
+            blanks: Vec::new(),
+            overrides: Vec::new(),
         }
     }
 }
@@ -178,12 +230,12 @@ impl Default for Build {
     fn default() -> Self {
         Build {
             plate: 4.0,
-            wall: 1.6,
+            wall: 2.51,
             collar_depth: 16.0,
-            back: 5.0,
+            back: 4.0,
             vents: true,
-            air: 2.0,
-            overhang: 60.0,
+            air: 3.0,
+            overhang: 55.0,
             split: true,
         }
     }

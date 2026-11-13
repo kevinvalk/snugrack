@@ -177,8 +177,19 @@ pub struct DeviceReport {
     pub size: [f64; 3],
     /// How far the front opening is inset from the device's outline, sideways and vertically.
     pub retention: [f64; 2],
-    /// Set back behind a lip because the device is box-shaped at the front.
-    pub lip: bool,
+    pub front: Front,
+}
+
+/// What the device's front sits in or against.
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub enum Front {
+    /// The faceplate's nest, which follows it, its face flush with the faceplate's.
+    Flush,
+    /// The nest, set back behind a lip because the device is box-shaped at the front.
+    Lip,
+    /// Pillars on the back of a blank faceplate (see [`crate::project::Blank`]).
+    Blank,
 }
 
 /// What an end of a row keeps clear of its rail, behind the panel: a bolted-on ear's rib, or a gap.
@@ -224,14 +235,15 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
     let (half, hole_x, rails) = (panel.width / 2.0, panel.hole_spacing / 2.0, panel.rail_opening);
     let (mut parts, mut warnings, mut rows) = (Vec::new(), Vec::new(), Vec::new());
     let mut top = 0.0;
+    let room = |id: &String| p.blanks.iter().find(|b| &b.model == id).map(|b| b.room);
     for (r, row) in p.rows.iter().enumerate() {
         let mut warn = |device, issue| warnings.push(Warning { row: r, device, issue });
-        let report = |device: &Device, size: DVec3, retention, lip, shift: DVec3| DeviceReport {
+        let report = |device: &Device, size: DVec3, retention, front, shift: DVec3| DeviceReport {
             matrix: (DMat4::from_translation(shift) * DMat4::from(device.to_device)).to_cols_array(),
             origin: shift.to_array(),
             size: size.to_array(),
             retention,
-            lip,
+            front,
         };
         // A device with its own ears takes as many whole units as it's tall: centered, on its units'
         // bottom, with its front at the panel's. Nothing is printed for it.
@@ -244,7 +256,9 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
             match device {
                 Some((id, None)) => warn(Some(0), Issue::MissingModel { id: id.clone() }),
                 Some(_) if size.x > panel.width => warn(Some(0), Issue::TooWide { width: size.x, room: panel.width }),
-                Some((_, Some(d))) => devices[0] = Some(report(d, size, [0.0; 2], false, DVec3::new(0.0, top, 0.0))),
+                Some((_, Some(d))) => {
+                    devices[0] = Some(report(d, size, [0.0; 2], Front::Flush, DVec3::new(0.0, top, 0.0)))
+                }
                 None => {}
             }
             rows.push(RowReport { devices, width: size.x, room: panel.width, gaps: Vec::new(), units });
@@ -261,7 +275,7 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
             .devices
             .iter()
             .enumerate()
-            .filter_map(|(i, id)| match models.get(id).map(|d| (d, d.fit(p))) {
+            .filter_map(|(i, id)| match models.get(id).map(|d| (d, d.fit(&p.own(id), room(id)))) {
                 None => {
                     warn(Some(i), Issue::MissingModel { id: id.clone() });
                     None
@@ -271,8 +285,8 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
                     None
                 }
                 Some((d, Some(f))) => {
-                    if f.height(p) > y1 - y0 {
-                        warn(Some(i), Issue::TooTall { height: f.height(p), row: y1 - y0 });
+                    if f.height() > y1 - y0 {
+                        warn(Some(i), Issue::TooTall { height: f.height(), row: y1 - y0 });
                         return None;
                     }
                     Some((i, d, f))
@@ -318,7 +332,7 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
                 .collect()
         };
         let width = |fitted: &[(usize, &Device, Rc<DeviceFit>)]| -> f64 {
-            fitted.iter().zip(rooms(fitted.len())).map(|((_, _, f), (l, r))| l + 2.0 * f.half_width(p) + r).sum()
+            fitted.iter().zip(rooms(fitted.len())).map(|((_, _, f), (l, r))| l + 2.0 * f.half_width() + r).sum()
         };
         // Devices go in in order, as long as they fit. A device's width counts the room for its
         // collar's screws and nuts, not just its cage.
@@ -347,12 +361,12 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
         let mut modules: Vec<(usize, Module)> = Vec::new();
         for (k, ((i, _, f), (l, r))) in fitted.iter().zip(rooms(n)).enumerate() {
             let x0 = *edges.last().unwrap() + if k > 0 { spread } else { 0.0 };
-            let m = f.module(x0 + l + f.half_width(p), (y0, y1), p);
+            let m = f.module(x0 + l + f.half_width(), (y0, y1));
             if let Some(issue) = m.issue.clone() {
                 warn(Some(*i), issue);
             }
             modules.push((*i, m));
-            edges.push(x0 + l + 2.0 * f.half_width(p) + r);
+            edges.push(x0 + l + 2.0 * f.half_width() + r);
         }
 
         let (first, last) = (edges[0], *edges.last().unwrap());
@@ -385,7 +399,7 @@ fn layout(p: &Project, models: &HashMap<String, Device>, rack: RackWidth) -> Ass
 
         let mut devices = vec![None; row.devices.len()];
         for ((i, device, f), (_, m)) in fitted.iter().zip(&modules) {
-            devices[*i] = Some(report(device, f.size, f.retention, f.recess > 0.0, m.shift));
+            devices[*i] = Some(report(device, f.size, f.retention, f.front, m.shift));
         }
         rows.push(RowReport { devices, width: total, room: hi - lo, gaps, units });
 
@@ -544,7 +558,7 @@ fn joint(
 mod tests {
     use super::*;
     use crate::mesh;
-    use crate::project::{Build, Fit, Hole, Row};
+    use crate::project::{Blank, Build, Fit, Hole, Override, Row};
 
     /// A 150 x 30 x 100 box, one 50 tall, and one 100 x 20 x 60 with its upright edges chamfered
     /// 5 mm at 45 degrees, front and back.
@@ -581,7 +595,7 @@ mod tests {
         let p = Project { rows: vec![Row { devices: vec!["led".into()], ..Row::default() }], ..Project::default() };
         let device = generate(&p, &models).rows[0].devices[0].clone().unwrap();
         // Boxed at the front, so behind a lip that overlaps it by the lip less the clearance.
-        assert!(device.lip && (device.retention[0] - (1.5 - 0.25)).abs() < 0.05, "{device:?}");
+        assert!(device.front == Front::Lip && (device.retention[0] - (1.5 - 0.25)).abs() < 0.05, "{device:?}");
     }
 
     fn kinds(a: &Assembly) -> Vec<(PartKind, Option<usize>)> {
@@ -594,8 +608,8 @@ mod tests {
         assert_eq!(a.warnings, []);
         let [round, square] = [0, 1].map(|i| a.rows[0].devices[i].clone().unwrap());
         // The opening at the plate's front is the face, 90 mm, plus 0.25 mm of clearance per side.
-        assert!(!round.lip && (round.retention[0] - (100.0 - 90.5) / 2.0).abs() < 0.05, "{round:?}");
-        assert!(square.lip && (square.retention[0] - (1.5 - 0.25)).abs() < 0.05, "{square:?}");
+        assert!(round.front == Front::Flush && (round.retention[0] - (100.0 - 90.5) / 2.0).abs() < 0.05, "{round:?}");
+        assert!(square.front == Front::Lip && (square.retention[0] - (1.5 - 0.25)).abs() < 0.05, "{square:?}");
     }
 
     #[test]
@@ -790,6 +804,27 @@ mod tests {
         assert!(a.rows[0].devices[2].is_none() && a.parts.iter().all(|p| p.device != Some(2)));
     }
 
+    /// A device can have its own settings: here too tall for its panel with the project's air, it fits
+    /// with none, while the same device next to it, without its own, still doesn't; and the third, with
+    /// no air either, has its cage walls closed.
+    #[test]
+    fn a_device_can_have_its_own_settings() {
+        let models = HashMap::from(["a", "b", "c"].map(|id| (id.to_string(), Device::boxed([100.0, 36.0, 100.0]))));
+        let row = Row { devices: vec!["a".into(), "b".into(), "c".into()], ..Row::default() };
+        let own = |model: &str, vents| Override { model: model.into(), air: Some(0.0), vents, ..Override::default() };
+        let overrides = vec![own("b", None), own("c", Some(false))];
+        let a = generate(&Project { rows: vec![row], overrides, ..Project::default() }, &models);
+        let tall: Vec<_> =
+            a.warnings.iter().filter(|w| matches!(w.issue, Issue::TooTall { .. })).map(|w| w.device).collect();
+        assert_eq!(tall, [Some(0)], "{:?}", a.warnings);
+        assert!(a.rows[0].devices[0].is_none() && a.rows[0].devices[1].is_some() && a.rows[0].devices[2].is_some());
+        let openings = |d: usize| {
+            let cage = a.parts.iter().find(|p| p.kind == PartKind::Cage && p.device == Some(d)).unwrap();
+            cage.solid.find("top openings").len()
+        };
+        assert!(openings(1) > 0 && openings(2) == 0);
+    }
+
     /// A device with no room for the latch, across, up or deep: it stays, without a latch, and says
     /// where it falls short. Too narrow for the tongues, too tall for them in a 1U row, too shallow.
     /// A narrow one, whose ledges leave too little air between them for the bottom tongues, still
@@ -802,7 +837,7 @@ mod tests {
             let row = Row { devices: vec!["it".into()], ..Row::default() };
             generate(&Project { rows: vec![row], ..Project::default() }, &models)
         };
-        for (short, size) in [(0, [30.0, 30.0, 100.0]), (1, [150.0, 36.0, 100.0]), (2, [150.0, 30.0, 30.0])] {
+        for (short, size) in [(0, [30.0, 30.0, 100.0]), (1, [150.0, 34.0, 100.0]), (2, [150.0, 30.0, 30.0])] {
             let a = design(size);
             let [Warning { device: Some(0), issue: Issue::Unlatched { need, room }, .. }] = a.warnings[..] else {
                 panic!("{size:?}: {:?}", a.warnings);
@@ -811,7 +846,7 @@ mod tests {
             assert!(a.rows[0].devices[0].is_some());
             assert_eq!(["latch nub", "latch pad", "tongue slits"].map(|n| parts(&a, n)), [0; 3], "{size:?}");
         }
-        for a in [rack(&[&["box"]], true), design([45.0, 30.0, 100.0])] {
+        for a in [rack(&[&["box"]], true), design([58.0, 30.0, 100.0])] {
             assert!(a.warnings.is_empty() && parts(&a, "latch nub") == 4, "{:?}", a.warnings);
         }
     }
@@ -935,7 +970,7 @@ mod tests {
             rows: vec![Row { devices: vec!["box".into()], left: Side::Ear, align: Align::Left, ..Row::default() }],
             ..Project::default()
         };
-        let edge = device.fit(&p).unwrap().half_width(&p);
+        let edge = device.fit(&p, None).unwrap().half_width();
         let models = HashMap::from([("box".to_string(), device)]);
         let center = generate(&p, &models).rows[0].devices[0].as_ref().unwrap().matrix[12];
         let rails = RackWidth::Inch19.dimensions().rail_opening;
@@ -956,7 +991,7 @@ mod tests {
     /// way they add up to what the devices leave of the row, and each device starts where its gap ends.
     #[test]
     fn gaps_share_the_spare_width() {
-        let models = HashMap::from([("box".to_string(), Device::boxed([100.0, 30.0, 100.0]))]);
+        let models = HashMap::from([("box".to_string(), Device::boxed([95.0, 30.0, 100.0]))]);
         let row = |n: usize, align: Align| {
             let row = Row { devices: vec!["box".into(); n], align, ..Row::default() };
             generate(&Project { rows: vec![row], ..Project::default() }, &models).rows.remove(0)
@@ -1042,6 +1077,27 @@ mod tests {
                         y: rand(-10.0, 100.0),
                         diameter: rand(0.0, 40.0),
                     })
+                    .collect(),
+                blanks: (0..3)
+                    .map(|i| (rand(0.0, 1.0), Blank { model: format!("m{i}"), room: rand(-5.0, 80.0) }))
+                    .filter(|(chance, _)| *chance < 0.3)
+                    .map(|(_, blank)| blank)
+                    .collect(),
+                overrides: (0..3)
+                    .map(|i| {
+                        (
+                            rand(0.0, 1.0),
+                            Override {
+                                model: format!("m{i}"),
+                                air: Some(rand(0.0, 5.0)),
+                                wall: Some(rand(0.4, 4.0)),
+                                vents: Some(rand(0.0, 1.0) < 0.5),
+                                cage: Some(rand(0.0, 1.0)),
+                            },
+                        )
+                    })
+                    .filter(|(chance, _)| *chance < 0.3)
+                    .map(|(_, o)| o)
                     .collect(),
             };
             let a = generate(&p, &models);

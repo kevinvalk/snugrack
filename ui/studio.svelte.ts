@@ -10,7 +10,7 @@ import type { Object3D } from 'three';
 import { engine } from './engine/engine.ts';
 import type { Design, PartMesh } from './engine/worker.ts';
 import { boxScene, download, loadModel, slug, stl } from './files.ts';
-import type { Direction, Hole, Issue, Orientation, PartKind, Project, Row } from './wasm/snugrack.js';
+import type { Direction, Hole, Issue, Orientation, Override, PartKind, Project, Row } from './wasm/snugrack.js';
 
 export type Size = [number, number, number];
 
@@ -210,6 +210,22 @@ class Studio {
     const model = this.doc!.project.rows[at.row].devices[at.device];
     this.doc!.project.holes.push({ model, x: round(x), y: round(y), diameter: 10 });
     this.selection = { ...at, hole: this.holes(at).length - 1 };
+  }
+
+  /** Put a device behind a blank faceplate, with room in front of it for its cables, or back in a nest. */
+  setBlank(id: string, blank: boolean) {
+    const blanks = this.doc!.project.blanks;
+    if (blank) blanks.push({ model: id, room: 30 });
+    else blanks.splice(blanks.findIndex((b) => b.model === id), 1);
+  }
+
+  /** Give a device its own setting, or with null, the project's again; with none of its own left, it has no overrides. */
+  setOwn<K extends Exclude<keyof Override, 'model'>>(id: string, key: K, value: Override[K]) {
+    const overrides = this.doc!.project.overrides;
+    if (!overrides.some((o) => o.model === id)) overrides.push({ model: id, air: null, wall: null, vents: null, cage: null });
+    const own = overrides.find((o) => o.model === id)!;
+    own[key] = value;
+    if ([own.air, own.wall, own.vents, own.cage].every((v) => v === null)) overrides.splice(overrides.indexOf(own), 1);
   }
 
   moveHole(at: Place, hole: number, x: number, y: number) {

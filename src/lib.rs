@@ -35,7 +35,7 @@ pub struct Device {
     fitted: RefCell<Option<Fitted>>,
 }
 
-type Fitted = ((Fit, Build), Option<Rc<DeviceFit>>);
+type Fitted = ((Fit, Build, Option<f64>), Option<Rc<DeviceFit>>);
 
 impl Device {
     /// `positions`: flat triangle list in meters, glTF's unit.
@@ -50,13 +50,14 @@ impl Device {
         Device::from(mesh::loft(&[(0.0, face.clone()), (-d, face)]))
     }
 
-    /// None for a device with nothing to fit, as a model scaled to nothing has.
-    fn fit(&self, p: &Project) -> Option<Rc<DeviceFit>> {
-        let settings = (p.fit, p.build);
+    /// None for a device with nothing to fit, as a model scaled to nothing has. Behind a blank faceplate, with `room`
+    /// for its cables (see [`project::Blank`]).
+    fn fit(&self, p: &Project, room: Option<f64>) -> Option<Rc<DeviceFit>> {
+        let settings = (p.fit, p.build, room);
         let mut last = self.fitted.borrow_mut();
         match &*last {
             Some((made, fit)) if *made == settings => fit.clone(),
-            _ => last.insert((settings, DeviceFit::new(&self.tris, &self.profile, p).map(Rc::new))).1.clone(),
+            _ => last.insert((settings, DeviceFit::new(&self.tris, &self.profile, p, room).map(Rc::new))).1.clone(),
         }
     }
 }

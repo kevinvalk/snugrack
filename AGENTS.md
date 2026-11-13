@@ -47,8 +47,9 @@ Never trade away behavior, safety or a test of what we must not get wrong.
 - **The user reviews all code and does the commits.** Never stage, commit, stash or reset. Unexpected changes in the
   working tree are theirs: build on them, never revert them, say so if one looks wrong.
 - **Untracked files you didn't make aren't yours:** don't touch, move or clean them (no `git clean`, no `git stash -u`).
-- **Don't change code while the user is testing**, and don't build or run over their running app (`npm run dev` on
-  port 5173): check first (`pgrep`, `lsof`), and wait if it's busy. Core changes only reach it when they restart it.
+- **Don't change code while the user is testing**, and don't build over their running app (`npm run dev` on port
+  5173): `npm run wasm`, `build` and `check` rewrite the `ui/wasm` it serves, so check first (`pgrep`, `lsof`) and wait.
+  `npm run e2e` builds into `target/e2e` and is safe beside it. Core changes only reach their app when they restart it.
 - **Only the user prints parts and fits them to real devices.** Device models in `fixtures/` are theirs and never get
   committed: we don't know whether their makers allow it.
 - **Feedback notes:** the user pins notes in the running app; read them with the `snugrack-feedback` MCP tools
@@ -96,8 +97,8 @@ Never trade away behavior, safety or a test of what we must not get wrong.
 - A regression test must fail without the fix: break the code on purpose and watch it fail before you trust it.
 - Before calling anything done: `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check`,
   `npm run check` and `npm run e2e`.
-- See your work in `npm run e2e`, not the user's app: it serves the build on port 4174, away from their dev server and
-  data. Look at every screenshot in `test-results/` of what you touched, add their models with `SNUGRACK_MODELS`, leave
+- See your work in `npm run e2e`, not the user's app: it serves its own build on port 4174, away from their dev server
+  and data. Look at every screenshot in `test-results/` of what you touched, add their models with `SNUGRACK_MODELS`, leave
   nothing listening, and keep it passing without a slicer or fixtures, as CI runs it.
 
 ## UI

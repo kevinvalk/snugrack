@@ -14,7 +14,8 @@ just its size, and lays out a whole rack of them at once.
 
 1. **Lay out your rack.** Add panels (one rack unit each, or taller) and put devices in them: pick one from the library,
    import its model (GLB or STL), or describe it as a box. Turn the model until its front faces you. If it comes in the
-   wrong size, measure a feature you know in the view and type its real length.
+   wrong size, measure a feature you know in the view and type its real length. A power supply, or anything else whose
+   cables come out of its front, can sit behind a blank faceplate, with room in front of it for its plugs and cables.
 2. **Check the warnings.** A device that doesn't fit its panel, or has no room for the latch, says so and why.
 3. **Export STLs** and print them without supports: faceplates front down, cages back down. Tune the clearances under
    Fit after a test print.
@@ -44,8 +45,8 @@ npx playwright install --only-shell chromium   # once, and after each Playwright
 npm run e2e                                    # the app in a browser, down to exported parts
 ```
 
-CI runs these on every push, and publishes `main` to GitHub Pages. The e2e leaves screenshots and STLs in
-`test-results/`; with PrusaSlicer installed (or `PRUSASLICER` pointing at it) it also slices every part, and
+CI runs these on every push, and publishes `main` to GitHub Pages. The e2e builds its own copy of the app in
+`target/e2e`, so it runs beside `npm run dev`, and leaves screenshots and STLs in `test-results/`; with PrusaSlicer installed (or `PRUSASLICER` pointing at it) it also slices every part, and
 `SNUGRACK_MODELS=fixtures/a.glb,...` adds your own models, kept in `fixtures/`, which is never committed.
 
 **Feedback notes.** `npm run dev` adds a Feedback button for developing with an agent: pin a note to a spot on a part,

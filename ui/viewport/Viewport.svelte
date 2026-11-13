@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Circle, Ruler, TriangleAlert, X } from '@lucide/svelte';
+  import { Circle, LocateFixed, Ruler, TriangleAlert, X } from '@lucide/svelte';
   import { Viewer, type Layer, type Section, type Tool, type ViewName } from './viewer.ts';
   import type { Measurement } from './measure.ts';
   import { describe, rowNumber, studio } from '../studio.svelte.ts';
@@ -89,7 +89,7 @@
         framed = count;
       }
     });
-    $effect(() => v.set({ hidden: new Set(hidden), explode, tool, holes, section: cut ? { axis: cut, at } : null, selected: studio.selection }));
+    $effect(() => v.set({ hidden: new Set(hidden), explode, tool, holes, section: cut ? { axis: cut, at } : null, selected: studio.selection, warned: studio.design?.warnings ?? [] }));
     return () => v.dispose();
   }
 
@@ -154,11 +154,13 @@
     {#if warnings.length}
       <ul class={[overlay, 'max-w-2xl flex-col items-stretch self-start']} aria-label="Problems">
         {#each warnings as w (w.key)}
+          <!-- Text to read and copy; selecting what it's about is a button of its own. -->
           <li class="flex items-start">
-            <button class="btn btn-quiet h-auto min-h-8 grow py-1 text-left whitespace-normal text-ink" onclick={() => (studio.selection = { row: w.row, device: w.device })}>
-              <TriangleAlert size={16} class="shrink-0 text-warn" />
-              {[!studio.doc?.project.rows[w.row]?.racked && `Panel ${rowNumber(w.row)}`, w.device !== null && (studio.doc?.models[studio.designed(w.row, w.device) ?? '']?.name ?? 'device')].filter(Boolean).join(', ')}: {describe(w.issue)}
-            </button>
+            <p class="flex grow gap-1.5 px-2 py-1.5">
+              <TriangleAlert size={16} class="mt-0.5 shrink-0 text-warn" />
+              <span>{[!studio.doc?.project.rows[w.row]?.racked && `Panel ${rowNumber(w.row)}`, w.device !== null && (studio.doc?.models[studio.designed(w.row, w.device) ?? '']?.name ?? 'device')].filter(Boolean).join(', ')}: {describe(w.issue)}</span>
+            </p>
+            <button class="btn btn-quiet shrink-0" aria-label="Select it" title="Select it" onclick={() => (studio.selection = { row: w.row, device: w.device })}><LocateFixed size={16} /></button>
             <button class="btn btn-quiet shrink-0" aria-label="Dismiss" title="Dismiss" onclick={() => (dismissed = [...dismissed, w.key])}><X size={16} /></button>
           </li>
         {/each}

@@ -65,9 +65,18 @@ export class Viewer {
   private clip = new THREE.Plane(new THREE.Vector3(-1, 0, 0), Infinity);
   private observer: ResizeObserver;
   private bounds = new THREE.Box3(new THREE.Vector3(-240, -45, -150), new THREE.Vector3(240, 0, 0));
-  private state = { explode: 0, hidden: new Set<Layer>(), selected: null as Selection, tool: null as Tool, holes: [] as Hole[], section: null as Section | null };
+  /** `warned`: the devices, or whole panels with no device, something's wrong with. */
+  private state = {
+    explode: 0,
+    hidden: new Set<Layer>(),
+    selected: null as Selection,
+    warned: [] as { row: number; device: number | null }[],
+    tool: null as Tool,
+    holes: [] as Hole[],
+    section: null as Section | null,
+  };
   private accent = theme('--color-accent');
-  private cut = theme('--color-warn');
+  private warn = theme('--color-warn');
   private ruler = new Ruler(this.clip, this.devices, this.accent, (m) => this.on.measure(m));
   /** Round the selected hole, on the front of the faceplate it goes through, wherever the explode has moved that. */
   private ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, 1, 1).getPoints(64)), new THREE.LineBasicMaterial({ color: this.accent, depthTest: false }));
@@ -216,7 +225,7 @@ export class Viewer {
       const surface = new THREE.Mesh(shaded, new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0, clippingPlanes: [this.clip] }));
       // Where a section cuts a part open, its back faces show: we color them as the cut face. Only
       // then, or they'd flicker through wherever two faces lie close.
-      const inside = new THREE.Mesh(shaded, new THREE.MeshBasicMaterial({ color: this.cut, side: THREE.BackSide, clippingPlanes: [this.clip] }));
+      const inside = new THREE.Mesh(shaded, new THREE.MeshBasicMaterial({ color: this.warn, side: THREE.BackSide, clippingPlanes: [this.clip] }));
       surface.name = 'surface';
       inside.name = 'inside';
       const edges = new THREE.LineSegments(
@@ -295,7 +304,7 @@ export class Viewer {
   }
 
   private apply() {
-    const { hidden, selected, section } = this.state;
+    const { hidden, selected, warned, section } = this.state;
     // A section cuts across its axis, `at` running from 0 to 1 across the rack's extent.
     if (!section) this.clip.set(new THREE.Vector3(-1, 0, 0), Infinity);
     else {
@@ -307,13 +316,15 @@ export class Viewer {
     const { forward, back } = this.travel();
     const [out, apart] = [Math.min(this.state.explode / OUT, 1), Math.max((this.state.explode - OUT) / (1 - OUT), 0)];
     for (const part of this.parts.children) {
-      const { layer, row, device, base, spread, offset } = part.userData as Part & { layer: Layer; base: THREE.Matrix4; spread: number; offset: THREE.Vector3 };
+      const { layer, kind, row, device, base, spread, offset } = part.userData as Part & { layer: Layer; base: THREE.Matrix4; spread: number; offset: THREE.Vector3 };
       part.visible = !hidden.has(layer);
       offset.set(spread * SPREAD * apart, 0, (layer === 'faceplate' ? forward : -back) * out);
       part.matrix.makeTranslation(offset).multiply(base);
       const isSelected = selected?.row === row && selected.hole === undefined && (selected.device === null || selected.device === device);
       const surface = (part.getObjectByName('surface') as THREE.Mesh).material as THREE.MeshStandardMaterial;
-      surface.color.set(PART).lerp(this.accent, isSelected ? 0.35 : 0);
+      // A faceplate in one piece is every device's in its row.
+      const isWarned = warned.some((w) => w.row === row && (w.device === null || w.device === device || (device === null && kind === 'faceplate')));
+      surface.color.set(PART).lerp(this.accent, isSelected ? 0.35 : 0).lerp(this.warn, isWarned ? 0.5 : 0);
       part.getObjectByName('inside')!.visible = this.clip.constant !== Infinity;
     }
     for (const dot of this.markers.children) dot.position.fromArray(dot.userData.point).add(this.offset(dot.userData.part));

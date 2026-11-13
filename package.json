@@ -11,7 +11,7 @@
     "dev": "npm run wasm && vite",
     "build": "npm run wasm && vite build",
     "check": "npm run wasm && svelte-check --fail-on-warnings",
-    "e2e": "npm run build && node --test"
+    "e2e": "wasm-pack build --target web --out-dir target/e2e/wasm --no-pack && SNUGRACK_WASM=target/e2e/wasm vite build --outDir target/e2e/dist --emptyOutDir && node --test"
   },
   "dependencies": {
     "@lucide/svelte": "^1.72.0",

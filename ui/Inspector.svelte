@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Circle, RotateCcw, RotateCw, Ruler, Trash2 } from '@lucide/svelte';
   import { rowNumber, studio } from './studio.svelte.ts';
-  import type { Align, RackWidth, Side } from './wasm/snugrack.js';
+  import type { Align, Front, RackWidth, Side } from './wasm/snugrack.js';
 
   /** Quarter turns of a device as it shows in the view, about the rack's x, y and z. */
   const TURNS = [
@@ -9,6 +9,7 @@
     { label: 'Tip', axis: 0, ways: [['Tip back', -1], ['Tip forward', 1]] },
     { label: 'Roll', axis: 2, ways: [['Roll left', 1], ['Roll right', -1]] },
   ] as const;
+  const FRONTS: Record<Front, string> = { flush: 'Flush', lip: 'Behind a lip', blank: 'Behind a blank faceplate' };
   const SIDES: Record<Side, string> = { ear: 'Rack ear', boltedEar: 'Rack ear, bolted on', joiner: 'Joiner', plain: 'Plain' };
   // Each pictured by the CSS that places its devices the same way.
   const ALIGNS: Record<Align, [string, string, string]> = {
@@ -65,6 +66,28 @@
   </label>
 {/snippet}
 
+<!-- A device's own number, or empty for the project's, which shows in its place. -->
+{#snippet mine(id: string, label: string, key: 'air' | 'wall' | 'cage', project: number, step: number)}
+  <label class={field} title="Empty it to use the project’s again">
+    {label}
+    <span>
+      <input
+        class={number}
+        type="number"
+        {step}
+        min="0"
+        placeholder={String(project)}
+        value={studio.doc!.project.overrides.find((o) => o.model === id)?.[key] ?? ''}
+        oninput={(e) => {
+          const value = e.currentTarget.valueAsNumber;
+          if (Number.isNaN(value) || value >= 0) studio.setOwn(id, key, Number.isNaN(value) ? null : value);
+        }}
+      />
+      <span class={unit}>mm</span>
+    </span>
+  </label>
+{/snippet}
+
 {#snippet toggle(label: string, obj: Record<string, any>, key: string, hint?: string, onchange?: () => void)}
   <label class={field} title={hint}>
     {label}
@@ -102,6 +125,7 @@
     {@const hole = s?.hole === undefined || d == null ? undefined : studio.holes({ row: s.row, device: d })[s.hole]}
     {@const id = d == null ? undefined : row?.devices[d]}
     {@const model = id ? studio.doc.models[id] : undefined}
+    {@const blank = id ? project.blanks.find((b) => b.model === id) : undefined}
     {#if s && d != null && hole}
       <section class={section}>
         <h2 class={heading}>Hole {s.hole! + 1}</h2>
@@ -193,14 +217,47 @@
         {/if}
         {#if report}
           {@render fact('Size', report.size.map((v) => v.toFixed(1)).join(' × '), 'mm')}
-          {#if !row.racked}
+          {#if !row.racked && !blank}
             {@render fact('Held by', report.retention.map((v) => v.toFixed(1)).join(' / '), 'mm', "How far the faceplate overlaps the device's outline, sideways and vertically")}
-            {@render fact('Front', report.lip ? 'Behind a lip' : 'Flush')}
+          {/if}
+          {#if !row.racked}
+            {@render fact('Front', FRONTS[report.front])}
           {/if}
         {:else}
           <p class="text-muted">—</p>
         {/if}
+        {#if !row.racked && id}
+          <label class={field} title="For a device whose cables come out of its front, such as a power supply: it sits behind a plain faceplate, past the collar, and its front cables bend out through the cage's openings">
+            Blank faceplate
+            <input class={knob} type="checkbox" checked={!!blank} onchange={(e) => studio.setBlank(id, e.currentTarget.checked)} />
+          </label>
+          {#if blank}
+            {@render num('Cable room', blank, 'room', 5, { hint: 'Open all round, between the collar and the device’s front: for its plugs, the cables bending out, and any spare cable' })}
+          {/if}
+        {/if}
       </section>
+      {#if !row.racked && id}
+        {@const own = project.overrides.find((o) => o.model === id)}
+        <section class={section}>
+          <h2 class={heading}>Its own settings</h2>
+          <p class="mb-1 text-muted">For this device only, instead of the project’s, which show faint while it has none.</p>
+          {@render mine(id, 'Air under device', 'air', project.build.air, 0.5)}
+          {@render mine(id, 'Walls', 'wall', project.build.wall, 0.1)}
+          {@render mine(id, 'Cage clearance', 'cage', project.fit.cage, 0.05)}
+          <label class={field}>
+            Open cage walls
+            <select
+              class="input"
+              value={own?.vents == null ? '' : String(own.vents)}
+              onchange={(e) => studio.setOwn(id, 'vents', e.currentTarget.value === '' ? null : e.currentTarget.value === 'true')}
+            >
+              <option value="">Project’s ({project.build.vents ? 'Yes' : 'No'})</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+        </section>
+      {/if}
       {#if !row.racked}
         <section class={section}>
           <h2 class={heading}>Cable holes</h2>

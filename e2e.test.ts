@@ -18,7 +18,7 @@ import { unzipSync } from 'fflate';
 import { chromium, type Page } from 'playwright';
 import { preview } from 'vite';
 
-const server = await preview({ preview: { port: 4174, strictPort: true }, logLevel: 'silent' });
+const server = await preview({ build: { outDir: 'target/e2e/dist' }, preview: { port: 4174, strictPort: true }, logLevel: 'silent' });
 const browser = await chromium.launch();
 // What an earlier run left would pass for this one's.
 await rm('test-results', { recursive: true, force: true });
@@ -41,6 +41,9 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   const nav = page.getByRole('navigation');
   const view = page.getByRole('img', { name: '3D view of the rack' });
   const panel = page.getByRole('complementary', { name: 'Properties' });
+  // The walls and air this test is measured for, whatever the defaults are.
+  await designed(page, () => panel.getByLabel(/^Walls/).fill('1.6'));
+  await designed(page, () => panel.getByLabel('Air under device').fill('2'));
 
   // A file that isn't a model says so until dismissed, with nothing to try again: the design is fine.
   await page.getByRole('button', { name: 'Add device' }).click();
@@ -213,6 +216,13 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   // A cage is as tall as a 1U panel allows, so the collar has no room round the latch's tongues.
   const problems = await page.getByRole('list', { name: 'Problems' }).getByRole('listitem').allTextContents();
   assert.deepEqual(problems.map((p) => /^Panel 3.*Not latched: with the latch/.test(p.trim())), [true], problems.join('\n'));
+  // Its text can be selected and copied, and a button of its own selects what it's about, whose parts show it.
+  const problem = page.getByRole('list', { name: 'Problems' }).getByRole('listitem').first();
+  await problem.getByText(/Not latched/).click({ clickCount: 3 });
+  assert.match(await page.evaluate(() => getSelection()!.toString()), /Not latched/);
+  await problem.getByRole('button', { name: 'Select it' }).click();
+  await panel.getByText('Device in panel 3').waitFor({ timeout: 5_000 });
+  await page.screenshot({ path: 'test-results/warned.png' });
 
   // A length measured on one device can calibrate that device, not whichever is selected next.
   await device.click();
@@ -295,6 +305,47 @@ test('a device from the library', { timeout: 120_000 }, async () => {
   assert.equal(tries, 2);
   // It faces the way the library says, as the UCG-Fiber's model does: the stand-in's 100 mm side is its front now.
   await page.getByText(/^Size/).getByText('100.0 × 30.0 × 150.0').waitFor({ timeout: 5_000 });
+  await page.close();
+});
+
+test('a power supply behind a blank faceplate', { timeout: 120_000 }, async () => {
+  const page = await open();
+  await addBox(page, 0);
+  await designed(page, () => page.getByLabel('Blank faceplate').check());
+  await page.getByText(/^Front/).getByText('Behind a blank faceplate').waitFor({ timeout: 5_000 });
+  assert.equal(await page.getByLabel('Cable room').inputValue(), '30');
+  assert.ok(await page.getByText(/^Held by/).isHidden());
+  await exportParts(page);
+  // Seen from the side, cut through the middle: the pillars from the plate to the device, and the openings in front of it.
+  await page.getByLabel('Section', { exact: true }).selectOption({ label: 'Side cut' });
+  await page.getByLabel('Section position').fill('0.3');
+  await page.getByRole('button', { name: 'Side', exact: true }).click();
+  await page.screenshot({ path: 'test-results/blank-section.png' });
+  await page.getByLabel('Section', { exact: true }).selectOption({ label: 'No section' });
+  await page.getByRole('button', { name: 'Iso' }).click();
+  await page.screenshot({ path: 'test-results/blank.png' });
+  await page.close();
+});
+
+test('a device with its own settings', { timeout: 120_000 }, async () => {
+  const page = await open();
+  await addBox(page, 0);
+  const air = page.getByLabel('Air under device').first();
+  const project = async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('snugrack.doc')!))).project;
+  // Empty, showing the project's, until it has its own.
+  assert.equal(await air.inputValue(), '');
+  assert.equal(await air.getAttribute('placeholder'), String((await project()).build.air));
+  await designed(page, () => air.fill('0'));
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('snugrack.doc')!).project.overrides.length === 1);
+  assert.deepEqual((await project()).overrides.map((o: { air: number }) => o.air), [0]);
+  // Its walls closed too; with no air of its own any more, it still has that.
+  await designed(page, () => page.getByLabel('Open cage walls').selectOption({ label: 'No' }));
+  await designed(page, () => air.fill(''));
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('snugrack.doc')!).project.overrides[0]?.air === null);
+  assert.deepEqual((await project()).overrides.map((o: { vents: boolean }) => o.vents), [false]);
+  await page.screenshot({ path: 'test-results/own-settings.png' });
+  await designed(page, () => page.getByLabel('Open cage walls').selectOption({ index: 0 }));
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('snugrack.doc')!).project.overrides.length === 0);
   await page.close();
 });
 
