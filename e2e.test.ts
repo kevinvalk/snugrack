@@ -187,6 +187,21 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   await page.screenshot({ path: 'test-results/rack-dark.png' });
   await headers(page, 'header-dark');
 
+  // Light picked over the system's dark stays picked after a reload, from the first paint; Shift-click follows the
+  // system again.
+  const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const dark = await background();
+  await page.getByRole('button', { name: 'Switch to light mode' }).click();
+  const light = await background();
+  assert.notEqual(light, dark);
+  await page.reload();
+  assert.equal(await background(), light);
+  await designed(page);
+  await page.locator('header').screenshot({ path: 'test-results/header-picked-light.png' });
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click({ modifiers: ['Shift'] });
+  assert.equal(await background(), dark);
+  assert.equal(await page.evaluate(() => localStorage.getItem('snugrack.scheme')), null);
+
   // Any shape will do as a device: one of the cages we just made, as an STL.
   const cage = Object.entries(files).find(([name]) => name.includes('panel-2-cage'))!;
   await designed(page, () => page.getByRole('button', { name: 'Add panel' }).click());

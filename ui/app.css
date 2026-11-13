@@ -30,6 +30,16 @@
     color-scheme: light dark;
   }
 
+  /* Light or dark as the user picked it in the app, over the system's. A rule here rather than a style set from
+     script: the build turns light-dark() into variables, which only a color-scheme it compiles switches. */
+  :root[data-scheme='light'] {
+    color-scheme: light;
+  }
+
+  :root[data-scheme='dark'] {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-bg font-sans text-sm text-ink antialiased;
   }

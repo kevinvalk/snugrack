@@ -4,6 +4,7 @@
 
 import { get, set } from 'idb-keyval';
 import { tick, untrack } from 'svelte';
+import { MediaQuery } from 'svelte/reactivity';
 import { zipSync } from 'fflate';
 import type { Object3D } from 'three';
 import { engine } from './engine/engine.ts';
@@ -34,6 +35,9 @@ export type Place = { row: number; device: number };
 type Status = { busy: true } | { busy: false; ms?: number; error?: string };
 
 const KEY = 'snugrack.doc';
+/** Light or dark, as the user picked it; without one we follow the system. `index.html` applies it before the first paint. */
+const SCHEME = 'snugrack.scheme';
+type Scheme = 'light' | 'dark';
 
 class Studio {
   doc = $state<Doc | null>(null);
@@ -52,6 +56,9 @@ class Studio {
   scenes = $state.raw<Record<string, Object3D>>({});
   private positions = new Map<string, Float32Array>();
   private latest = 0;
+  private system = new MediaQuery('(prefers-color-scheme: dark)');
+  /** Light or dark as the user picked it, or null to follow the system. */
+  scheme = $state.raw(localStorage.getItem(SCHEME) as Scheme | null);
   /** The project the design was made from: the design's places are its, until the next design catches up. */
   made = $state.raw<Project | null>(null);
 
@@ -73,6 +80,20 @@ class Studio {
     // A model that fails to load shouldn't keep the rest from opening; the core reports it missing.
     await Promise.allSettled(Object.entries(doc.models).map(([id, m]) => this.register(id, m)));
     this.doc = doc;
+  }
+
+  /** Whether the app shows dark, picked or the system's. */
+  get dark() {
+    return (this.scheme ?? (this.system.current ? 'dark' : 'light')) === 'dark';
+  }
+
+  /** Show light or dark from now on, or with none, follow the system again. */
+  setScheme(scheme: Scheme | null) {
+    this.scheme = scheme;
+    if (scheme) document.documentElement.dataset.scheme = scheme;
+    else delete document.documentElement.dataset.scheme;
+    if (scheme) localStorage.setItem(SCHEME, scheme);
+    else localStorage.removeItem(SCHEME);
   }
 
   /** Whether the design is of the project as it is: rows on screen are the rows in the project. */

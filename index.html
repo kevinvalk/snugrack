@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SnugRack</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <!-- Light or dark as the user picked it in the app (studio.svelte.ts), before the first paint. -->
+    <script>
+      {
+        const scheme = localStorage.getItem('snugrack.scheme');
+        if (scheme) document.documentElement.dataset.scheme = scheme;
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

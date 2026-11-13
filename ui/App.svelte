@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Download, LoaderCircle, Pencil, RefreshCw, X } from '@lucide/svelte';
+  import { Download, LoaderCircle, Moon, Pencil, RefreshCw, Sun, SunMoon, X } from '@lucide/svelte';
   import Inspector from './Inspector.svelte';
   import RackPanel from './RackPanel.svelte';
   import { partName, studio } from './studio.svelte.ts';
@@ -65,6 +65,16 @@
         {/if}
       </span>
 
+      <button
+        class="btn btn-quiet"
+        aria-label={studio.dark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={studio.scheme
+          ? `${studio.dark ? 'Switch to light mode' : 'Switch to dark mode'}; Shift-click to follow the system again`
+          : `Following the system: switch to ${studio.dark ? 'light' : 'dark'} mode`}
+        onclick={(e) => studio.setScheme(e.shiftKey ? null : studio.dark ? 'light' : 'dark')}
+      >
+        {#if !studio.scheme}<SunMoon size={16} />{:else if studio.dark}<Moon size={16} />{:else}<Sun size={16} />{/if}
+      </button>
       <button
         class="btn border-accent bg-accent text-white"
         popovertarget="export"
