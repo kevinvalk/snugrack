@@ -45,9 +45,11 @@ npx playwright install --only-shell chromium   # once, and after each Playwright
 npm run e2e                                    # the app in a browser, down to exported parts
 ```
 
-CI runs these on every push, and publishes `main` to GitHub Pages. The e2e builds its own copy of the app in
-`target/e2e`, so it runs beside `npm run dev`, and leaves screenshots and STLs in `test-results/`; with PrusaSlicer installed (or `PRUSASLICER` pointing at it) it also slices every part, and
-`SNUGRACK_MODELS=fixtures/a.glb,...` adds your own models, kept in `fixtures/`, which is never committed.
+CI runs these on every push, and publishes `main` to GitHub Pages: every commit there is a release, versioned by when it
+was made (`YYYY.MM.DD.HHmm`, Amsterdam time), which shows next to the logo. The e2e builds its own copy of the app in
+`target/e2e`, so it runs beside `npm run dev`, and leaves screenshots and STLs in `test-results/`; with PrusaSlicer
+installed (or `PRUSASLICER` pointing at it) it also slices every part, and `SNUGRACK_MODELS=fixtures/a.glb,...` adds
+your own models, kept in `fixtures/`, which is never committed.
 
 **Feedback notes.** `npm run dev` adds a Feedback button for developing with an agent: pin a note to a spot on a part,
 to an element of the interface, or write a free one. Notes go to `.feedback/` (not committed) with a screenshot and the

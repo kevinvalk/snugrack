@@ -25,10 +25,13 @@
 <div class="grid h-screen grid-cols-2 grid-rows-[3.25rem_minmax(0,1fr)_minmax(0,40%)] xl:grid-cols-[16rem_minmax(0,1fr)_19rem] xl:grid-rows-[3.25rem_minmax(0,1fr)]">
   <header class="col-span-full grid grid-cols-[minmax(max-content,1fr)_minmax(0,max-content)_minmax(max-content,1fr)] items-center gap-2 border-b border-line bg-surface px-3">
     <!-- Where there's no room for the name, the mark alone. -->
-    <picture>
-      <source media="(width < 40rem)" srcset="favicon.svg" />
-      <img src="logo.svg" alt="SnugRack" class="h-8" />
-    </picture>
+    <div class="flex items-center gap-2">
+      <picture>
+        <source media="(width < 40rem)" srcset="favicon.svg" />
+        <img src="logo.svg" alt="SnugRack" class="h-8" />
+      </picture>
+      <span class="text-xs text-muted" title="Version: when this was made">{import.meta.env.VERSION}</span>
+    </div>
     <!-- The rack's name is the page's title, centered, and edits in place, as a document's name does in Google Docs
          or Figma: a field that reads as a title, with a pencil that says it edits. Its frame shows on hover and holds
          the focus ring, so the ring goes round the pencil rather than through it. -->

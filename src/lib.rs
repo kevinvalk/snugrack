@@ -8,6 +8,7 @@ pub mod mount;
 pub mod poly;
 pub mod project;
 pub mod rack;
+pub mod round;
 pub mod silhouette;
 pub mod terrain;
 
@@ -102,4 +103,12 @@ impl Models {
 #[wasm_bindgen(js_name = defaultProject)]
 pub fn default_project() -> Result<Ts<Project>, JsError> {
     Ok(Ts::from_rust(&Project::default())?)
+}
+
+/// What to take away from a built part, a mesh in the rack frame, to round its edges (see [`round`]).
+#[wasm_bindgen(js_name = roundEdges)]
+pub fn round_edges(positions: &[f32], indices: &[u32]) -> Result<Ts<csg::Solid>, JsError> {
+    let vertices: Vec<[f64; 3]> = positions.chunks(3).map(|p| [p[0] as f64, p[1] as f64, p[2] as f64]).collect();
+    let triangles: Vec<[u32; 3]> = indices.chunks(3).map(|t| [t[0], t[1], t[2]]).collect();
+    Ok(Ts::from_rust(&round::cutters(&vertices, &triangles, round::RADIUS))?)
 }

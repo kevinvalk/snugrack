@@ -89,6 +89,9 @@ Never trade away behavior, safety or a test of what we must not get wrong.
   they open through.
 - Judge printability the way the printer sees it: slice the exported part and read its toolpaths layer by layer (what
   each layer rests on, where it bridges), not just the angles of its faces.
+- Build parts sharp. The corners each layer has are rounded after the fact (`src/round.rs`, Round edges under Build),
+  so never round a convex corner by hand; design in only what adds material: fillets, and corners another part fits
+  round. The e2e prints how many mm of sharp edge each part keeps: what's left marks a spot with no room for a round.
 
 ## Tests
 

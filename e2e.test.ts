@@ -41,6 +41,8 @@ test('a two-panel rack exports closed parts', { timeout: 180_000 }, async () => 
   const nav = page.getByRole('navigation');
   const view = page.getByRole('img', { name: '3D view of the rack' });
   const panel = page.getByRole('complementary', { name: 'Properties' });
+  // Next to the logo, the version: when the commit it was built from was made.
+  assert.match((await page.locator('header').getByTitle(/^Version/).textContent())!, /^\d{4}\.\d{2}\.\d{2}\.\d{4}$/);
   // The walls and air this test is measured for, whatever the defaults are.
   await designed(page, () => panel.getByLabel(/^Walls/).fill('1.6'));
   await designed(page, () => panel.getByLabel('Air under device').fill('2'));
@@ -327,6 +329,21 @@ test('a power supply behind a blank faceplate', { timeout: 120_000 }, async () =
   await page.close();
 });
 
+test('edges round after the fact, and can stay sharp', { timeout: 120_000 }, async () => {
+  const page = await open();
+  await addBox(page, 0);
+  const cage = async () => inspect(await download(page, /· Cage/));
+  const round = await cage();
+  await page.getByRole('navigation').getByRole('button', { name: /^Rack/ }).click();
+  await designed(page, () => page.getByLabel('Round edges').uncheck());
+  const sharp = await cage();
+  // Rounding only takes material off the corners that stand out, and takes off most of what's sharp.
+  assert.ok(round.leaks === 0 && sharp.leaks === 0);
+  assert.ok(round.grams < sharp.grams, `${round.grams} g rounded, ${sharp.grams} g sharp`);
+  assert.ok(round.sharp < sharp.sharp / 2, `${round.sharp.toFixed(0)} mm sharp rounded, ${sharp.sharp.toFixed(0)} mm without`);
+  await page.close();
+});
+
 test('a device with its own settings', { timeout: 120_000 }, async () => {
   const page = await open();
   await addBox(page, 0);
@@ -404,8 +421,8 @@ async function exportParts(page: Page) {
   for (const [name, bytes] of Object.entries(files)) {
     const stl = Buffer.from(bytes);
     await writeFile(`test-results/parts/${name}`, stl);
-    const { grams, overhang, leaks } = inspect(stl);
-    console.log(`${name}: ${grams.toFixed(1)} g, ${overhang.toFixed(0)} mm² overhang${slice(`test-results/parts/${name}`)}`);
+    const { grams, overhang, leaks, sharp } = inspect(stl);
+    console.log(`${name}: ${grams.toFixed(1)} g, ${overhang.toFixed(0)} mm² overhang, ${sharp.toFixed(0)} mm sharp${slice(`test-results/parts/${name}`)}`);
     assert.equal(leaks, 0, `${name} is not watertight`);
     // What's left are bridges: the tops of the cage's openings (30 mm at most; at the open sides
     // they span the ledges the device rests on too), the latch holes and the nut pockets.
@@ -496,11 +513,14 @@ function slice(stl: string): string {
  * than 46 degrees from upright, a degree past the 45-degree slopes we print without support; and the
  * edges where the surface doesn't close: walked one way more often than the other, once identical
  * float32 vertices merge. A pinch, where a window's corner just touches the cavity and four faces
- * share an edge, still closes and slices.
+ * share an edge, still closes and slices. And how long the edges that stand out sharp in a layer add up to, the
+ * corners src/round.rs rounds where it can: what's left marks where the design leaves no room for a round.
  */
 function inspect(stl: Buffer) {
-  let [volume, overhang] = [0, 0];
+  let [volume, overhang, sharp] = [0, 0, 0];
   const edges = new Map<string, number>();
+  // Each directed edge: its face's normal, and the face's third corner.
+  const faces = new Map<string, [number[], number[]]>();
   for (let t = 0; t < stl.readUInt32LE(80); t++) {
     const [a, b, c] = [0, 1, 2].map((k) => [0, 1, 2].map((i) => stl.readFloatLE(84 + t * 50 + 12 + k * 12 + i * 4)));
     const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
@@ -510,13 +530,27 @@ function inspect(stl: Buffer) {
     const twice = Math.hypot(...n);
     if (twice > 0 && n[2] / twice < -Math.sin((46 * Math.PI) / 180) && Math.max(a[2], b[2], c[2]) > 0.01) overhang += twice / 2;
     const keys = [a, b, c].map(String);
+    const corners = [a, b, c];
     for (let k = 0; k < 3; k++) {
       const key = `${keys[k]}>${keys[(k + 1) % 3]}`;
       edges.set(key, (edges.get(key) ?? 0) + 1);
+      if (twice > 0) faces.set(key, [n.map((x) => x / twice), corners[(k + 2) % 3]]);
     }
   }
   const leaks = [...edges].filter(([key, n]) => n !== edges.get(key.split('>').reverse().join('>'))).length;
-  return { grams: (volume / 1000) * 1.25, overhang, leaks };
+  const dot = (p: number[], q: number[]) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+  for (const [key, [n1]] of faces) {
+    const [from, to] = key.split('>');
+    const twin = faces.get(`${to}>${from}`);
+    if (!twin || from > to) continue;
+    const [n2, w] = twin;
+    const [p, q] = [from, to].map((s) => s.split(',').map(Number));
+    const along = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+    const length = Math.hypot(...along);
+    const sharpish = dot(n1, n2) < 0.5 && dot(n1, [w[0] - p[0], w[1] - p[1], w[2] - p[2]]) <= 1e-6;
+    if (sharpish && Math.abs(along[2]) > 0.2 * length && Math.hypot(n1[0], n1[1]) > 0.3 && Math.hypot(n2[0], n2[1]) > 0.3) sharp += length;
+  }
+  return { grams: (volume / 1000) * 1.25, overhang, leaks, sharp };
 }
 
 /** A 150 x 30 x 100 mm device with its four vertical edges chamfered 5 mm, as a GLB in meters. */

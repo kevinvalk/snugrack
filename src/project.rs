@@ -171,6 +171,8 @@ pub struct Build {
     pub overhang: f64,
     /// Print each device's share of a row as its own piece, bolted to its neighbors.
     pub split: bool,
+    /// Round every edge a layer has a corner at (see [`crate::round`]); without, the parts as built, every edge sharp.
+    pub round: bool,
 }
 
 impl Project {
@@ -237,6 +239,7 @@ impl Default for Build {
             air: 3.0,
             overhang: 55.0,
             split: true,
+            round: true,
         }
     }
 }

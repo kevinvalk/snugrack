@@ -1,7 +1,7 @@
 // Geometry worker: the Rust core designs the parts, manifold-3d builds them.
 
 import Module, { type Manifold, type ManifoldToplevel, type Mat4, type Vec3 } from 'manifold-3d';
-import init, { Models, defaultProject, type Assembly, type Orientation, type Part, type Project, type Solid } from '../wasm/snugrack.js';
+import init, { Models, defaultProject, roundEdges, type Assembly, type Orientation, type Part, type Project, type Solid } from '../wasm/snugrack.js';
 import wasmUrl from '../wasm/snugrack_bg.wasm?url';
 
 export type Request =
@@ -59,8 +59,9 @@ self.onmessage = async ({ data: { call, ...req } }: MessageEvent<Request & { cal
       const { parts, ...rest } = models.generate(req.project);
       // Most edits leave most parts alone, so we reuse the previous design's builds where the tree
       // is the same. Copies go out, since their buffers are transferred and our builds must stay.
-      const keys = parts.map((p) => JSON.stringify([p.bed, p.solid]));
-      previous = new Map(keys.map((key, i) => [key, previous.get(key) ?? build(manifold, parts[i])]));
+      const round = req.project.build.round;
+      const keys = parts.map((p) => JSON.stringify([p.bed, round, p.solid]));
+      previous = new Map(keys.map((key, i) => [key, previous.get(key) ?? build(manifold, parts[i], round)]));
       // We keep what this design's parts are cut from, and let the rest go.
       const used = new Set(parts.map(({ solid }) => JSON.stringify(twice(solid) ? solid.base : solid)));
       for (const [key, base] of bases) if (!used.has(key)) (base.solid.delete(), bases.delete(key));
@@ -77,14 +78,16 @@ self.onmessage = async ({ data: { call, ...req } }: MessageEvent<Request & { cal
   }
 };
 
-function build(m: ManifoldToplevel, { bed, solid: tree }: Part) {
+function build(m: ManifoldToplevel, { bed, solid: tree }: Part, round: boolean) {
   // Collapse anything finer than the core's resolution (`RESOLUTION` in src/poly.rs), as the clusters of
   // near-equal corners that offsetting leaves are; curves, already chords that close to them, stay as round.
   // Then turn the bed face down. Both happen in the kernel's doubles: the mesh we hand out is float32, and moving it
   // after that would round vertices onto each other. The back faces -z already; the front turns over about X.
   const flip = bed === 'front';
   const labels = new Map<number, Label>();
-  const simple = consume(cut(m, tree, labels), (s) => s.simplify(0.01));
+  const built = cut(m, tree, labels);
+  const shaped = round ? consume(built, (s) => rounded(m, s, labels)) : built;
+  const simple = consume(shaped, (s) => s.simplify(0.01));
   const solid = flip ? consume(simple, (s) => s.rotate([180, 0, 0])) : simple;
   const { min, max } = solid.boundingBox();
   const t: Vec3 = [-(min[0] + max[0]) / 2, -(min[1] + max[1]) / 2, -min[2]];
@@ -109,6 +112,15 @@ function build(m: ManifoldToplevel, { bed, solid: tree }: Part) {
     grams,
     sources,
   };
+}
+
+/** Its edges rounded: the core says what to take away from it as built (see src/round.rs). */
+function rounded(m: ManifoldToplevel, s: Manifold, labels: Map<number, Label>): Manifold {
+  const { vertProperties, triVerts } = s.getMesh();
+  const tool = evaluate(m, roundEdges(vertProperties, triVerts), labels);
+  const out = s.subtract(tool);
+  tool.delete();
+  return out;
 }
 
 const twice = (s: Solid): s is Extract<Solid, { op: 'difference' }> => s.op === 'difference' && s.base.op === 'difference';
